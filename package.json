@@ -1,6 +1,6 @@
 {
   "name": "starmemory-dsh",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "type": "module",
   "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回；v1.2.0 起含 Plugins 页设置卡片与聊天区召回滑块（client half）",
   "main": "./index.mjs",
@@ -16,7 +16,8 @@
     "client",
     "icon.svg",
     "locale",
-    "manual.json"
+    "manual.json",
+    "cordis.patch.yml"
   ],
   "icon": "./icon.svg",
   "dsh": {
@@ -25,8 +26,7 @@
     },
     "client": {
       "platform": "web",
-      "external": [
-        "react",
+      "inject": [
         "@deepseek-ai/dsh-client-ui-primitives"
       ]
     }
@@ -34,10 +34,11 @@
   "scripts": {
     "check:client": "node scripts/check-client.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:package": "node scripts/check-package.mjs",
     "test": "node --test test/*.test.js test/*.test.mjs",
     "gate:node": "npx --no-install esbuild index.mjs --bundle --platform=node --format=esm --outfile=NUL --external:@deepseek-ai/*",
     "gate:schema": "node scripts/check-schema.mjs",
-    "gate": "npm run gate:node && npm run gate:schema && npm run check:client && npm run check:i18n && npm test"
+    "gate": "npm run gate:node && npm run gate:schema && npm run check:client && npm run check:i18n && npm run check:package && npm test"
   },
   "license": "MIT",
   "private": false
