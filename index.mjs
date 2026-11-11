@@ -13,6 +13,16 @@ import { createFragmentAddTool } from './lib/tools/fragment-add.js'
 import { createFragmentSearchTool } from './lib/tools/fragment-search.js'
 import { createFragmentViewTool, createFragmentUpdateTool, createFragmentDeleteTool } from './lib/tools/fragment-crud.js'
 import { createFragmentDeepSearchTool } from './lib/tools/fragment-deep-search.js'
+import { createFragmentStatsTool } from './lib/tools/fragment-stats.js'
+import { createFragmentCompactTool } from './lib/tools/fragment-compact.js'
+import { createFragmentDreamTool } from './lib/tools/fragment-dream.js'
+import { createArchiveStatusTool } from './lib/tools/archive-status.js'
+import { createFragmentRestoreTool } from './lib/tools/fragment-restore.js'
+import { createFragmentDiagnosisTool } from './lib/tools/fragment-diagnosis.js'
+import { createExportTool, createImportTool } from './lib/tools/export-import.js'
+import { createManualTool } from './lib/tools/manual.js'
+import { createSynonymViewTool, createSynonymAddTool, createSynonymDeleteTool, createSynonymUpdateTool } from './lib/tools/synonym-map.js'
+import { createSqliteTool } from './lib/tools/sqlite.js'
 import { pingTool } from './lib/tools/memory-ping.js'
 
 export const name = 'starmemory-dsh'
@@ -39,6 +49,7 @@ export async function apply(ctx) {
   const deps = { store, getArchive: () => archive }
   const tools = [
     pingTool,
+    // P0
     createMemoryTool(deps),
     createFragmentAddTool(deps),
     createFragmentSearchTool(deps),
@@ -46,9 +57,24 @@ export async function apply(ctx) {
     createFragmentUpdateTool(deps),
     createFragmentDeleteTool(deps),
     createFragmentDeepSearchTool(deps),
+    // P1
+    createFragmentStatsTool(deps),
+    createFragmentCompactTool(deps),
+    createFragmentDreamTool(deps),
+    createArchiveStatusTool(deps),
+    createFragmentRestoreTool(deps),
+    createFragmentDiagnosisTool(deps),
+    // P2
+    createExportTool(deps),
+    createImportTool(deps),
+    createManualTool(),
+    createSynonymViewTool(deps),
+    createSynonymAddTool(deps),
+    createSynonymDeleteTool(deps),
+    createSynonymUpdateTool(deps),
+    createSqliteTool(deps),
   ]
   for (const tool of tools) ctx.tools.register(defineTool(tool))
 
-  // Phase 3+ 起在此追加：P1（stats/compact/dream/archive_status/restore/diagnosis）、
-  // P2（export/import/manual/synonym_map_*）、P3（recall_*）
+  // Phase 4 起在此追加：P3（recall_set / recall_enable / recall_status / recall_preview）
 }
