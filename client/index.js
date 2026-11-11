@@ -4,7 +4,9 @@
 // - 不用 esbuild 多文件打包：单文件 + 手写 CJS 直接入库，消除 seed/banner/外部
 //   require 重写等接缝，最大化稳定性与可调试性（client 插件报错即白屏，接缝越少越好）。
 // - 档位控件用自绘按钮行（h('button')），不用 SegmentedControl：其 onChange 不回传
-//   已选值、需管理 tablist 语义，MVP 阶段自绘更可控；Switch 用 primitives 实测组件。
+//   已选值、需管理 tablist 语义；Switch 用 primitives 实测组件。
+// - 美化（v1.2.1）：聊天滑块 = 迷你星空 + 像素流星滑头（注入 <style>，伪元素/滑块
+//   thumb 内联样式做不了）；设置卡片 = DSH alias token 规范（06-ui-style §2）。
 //
 // 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots','configForms']
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
@@ -24,7 +26,64 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   var NS = 'starmemory-dsh'
   var PKG = 'starmemory-dsh'
   var EFFORT_LABELS = ['OFF', '极轻', '轻', '中', '较强', '强', '最强']
-  var THEME = { accent: '#1d9bf0', bg: '#16202a', border: '#2f3336', text2: '#71767b', error: '#f4212e' }
+
+  // ================= 美化样式：一次注入（id 幂等） =================
+  // 聊天滑块：迷你星空 + 像素流星。深空底不随主题（星空widget独立成立），
+  // 强调色走 alias token（深色自动适配）。卡片走 DSH alias token。
+  var ACCENT = 'var(--dsw-alias-state-business-primary, #1d9bf0)'
+  var SLIDER_CSS = [
+    '.sm-recall-slider{position:fixed;top:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:9px;',
+    'padding:8px 12px;background:linear-gradient(135deg,#0b1026,#141b3a);border:1px solid #2a3358;',
+    'border-radius:6px;box-shadow:0 0 0 1px rgba(29,155,240,.10),0 4px 18px rgba(0,0,0,.45);',
+    'font-family:"Courier New",monospace;overflow:hidden;}',
+    '.sm-recall-slider .sm-stars{position:absolute;inset:0;pointer-events:none;z-index:0;}',
+    '.sm-recall-slider .sm-stars::before{content:"";position:absolute;width:2px;height:2px;background:#fff;',
+    'box-shadow:12px 9px 0 0 #fff,34px 22px 0 0 rgba(255,255,255,.8),55px 6px 0 0 rgba(255,255,255,.5),',
+    '78px 26px 0 0 #fff,100px 12px 0 0 rgba(255,255,255,.7),122px 30px 0 0 rgba(255,255,255,.6),',
+    '148px 8px 0 0 #fff,168px 24px 0 0 rgba(255,255,255,.45),190px 14px 0 0 rgba(255,255,255,.8),',
+    '210px 30px 0 0 #fff,60px 34px 0 0 rgba(255,255,255,.4),135px 2px 0 0 rgba(255,255,255,.5),',
+    '88px 2px 0 0 rgba(255,255,255,.35),180px 3px 0 0 rgba(255,255,255,.5),20px 30px 0 0 rgba(255,255,255,.35);}',
+    '.sm-recall-slider .sm-streak{position:absolute;top:8px;left:0;width:46px;height:2px;z-index:0;',
+    'background:linear-gradient(90deg,transparent,' + ACCENT + ',transparent);opacity:0;',
+    'animation:sm-shoot 7s linear infinite;pointer-events:none;}',
+    '@keyframes sm-shoot{0%{transform:translateX(-60px);opacity:0}5%{opacity:.9}45%{opacity:.7}',
+    '60%{transform:translateX(240px);opacity:0}100%{transform:translateX(240px);opacity:0}}',
+    '.sm-recall-slider .sm-meteor{position:relative;z-index:1;width:8px;height:8px;border-radius:1px;',
+    'background:' + ACCENT + ';box-shadow:0 0 6px ' + ACCENT + ',',
+    '-6px 0 0 -1px color-mix(in srgb,' + ACCENT + ' 60%,transparent),',
+    '-12px 0 0 -2px color-mix(in srgb,' + ACCENT + ' 30%,transparent);}',
+    '.sm-recall-slider .sm-label{position:relative;z-index:1;font-size:12px;letter-spacing:.5px;',
+    'color:#dfe6ff;white-space:nowrap;}',
+    '.sm-recall-slider .sm-label .sm-lv{color:' + ACCENT + ';}',
+    '.sm-recall-slider .sm-range{-webkit-appearance:none;appearance:none;position:relative;z-index:1;',
+    'width:132px;height:12px;background:transparent;outline:none;cursor:pointer;}',
+    '.sm-recall-slider .sm-range::-webkit-slider-runnable-track{height:6px;border-radius:2px;',
+    'background:repeating-linear-gradient(90deg,transparent 0 17px,rgba(0,0,0,.45) 17px 19px),',
+    'linear-gradient(90deg,' + ACCENT + ' 0,' + ACCENT + ' var(--sm-fill,0%),#1b2246 var(--sm-fill,0%));}',
+    '.sm-recall-slider .sm-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
+    'width:10px;height:10px;margin-top:-2px;border-radius:1px;background:#fff;border:1px solid ' + ACCENT + ';',
+    'box-shadow:0 0 8px ' + ACCENT + ',7px 0 0 -2px color-mix(in srgb,' + ACCENT + ' 65%,transparent),',
+    '14px 0 0 -4px color-mix(in srgb,' + ACCENT + ' 35%,transparent),',
+    '21px 0 0 -6px color-mix(in srgb,' + ACCENT + ' 18%,transparent);}',
+    '.sm-recall-slider .sm-range::-moz-range-track{height:6px;border-radius:2px;background:#1b2246;}',
+    '.sm-recall-slider .sm-range::-moz-range-progress{height:6px;border-radius:2px;background:' + ACCENT + ';}',
+    '.sm-recall-slider .sm-range::-moz-range-thumb{width:10px;height:10px;border-radius:1px;background:#fff;',
+    'border:1px solid ' + ACCENT + ';box-shadow:0 0 8px ' + ACCENT + ';}',
+    '.sm-recall-slider .sm-err{position:relative;z-index:1;font-size:11px;color:#f4212e;}',
+  ].join('')
+
+  function ensureStyle(id, css) {
+    try {
+      if (typeof document === 'undefined') return
+      if (document.getElementById(id)) return
+      var el = document.createElement('style')
+      el.id = id
+      el.textContent = css
+      document.head.appendChild(el)
+    } catch (e) {
+      console.warn('[starmemory] style inject failed:', e)
+    }
+  }
 
   // ================= 数据桥：scope → 派生快照（React #185 防线） =================
   // useSyncExternalStore 要求内容未变时 getSnapshot 返回同一对象；否则无限重渲（#185）。
@@ -109,7 +168,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     }
   }
 
-  // ================= 聊天区召回滑块（shell.overlay） =================
+  // ================= 聊天区召回滑块（shell.overlay）：迷你星空 + 像素流星 =================
   function createSlider(bridge, commit) {
     return function RecallSlider() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
@@ -118,6 +177,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var timer = React.useRef(null)
       var dragValue = local[0], setDrag = local[1]
       var errValue = err[0], setErr = err[1]
+
+      React.useEffect(function () { ensureStyle('sm-recall-style', SLIDER_CSS) }, [])
 
       if (state.status === 'unavailable') return null
       if (!state.enabled) return null       // 关闭即消失（含拖到 0 档）
@@ -141,19 +202,23 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
 
       var shown = dragValue === null ? state.effort : dragValue
-      return h('div', { style: { position: 'fixed', top: '16px', right: '16px', zIndex: 9999, background: THEME.bg, border: '1px solid ' + THEME.border, borderRadius: '8px', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' } },
-        h('span', { style: { color: THEME.text2, whiteSpace: 'nowrap' } }, '召回 ' + (EFFORT_LABELS[shown] || shown)),
+      var pct = (shown / 6) * 100
+      return h('div', { className: 'sm-recall-slider', style: { '--sm-fill': pct + '%' } },
+        h('div', { className: 'sm-stars' }),
+        h('div', { className: 'sm-streak' }),
+        h('div', { className: 'sm-meteor' }),
+        h('span', { className: 'sm-label' }, '召回 ',
+          h('span', { className: 'sm-lv' }, EFFORT_LABELS[shown] || shown)),
         h('input', {
-          type: 'range', min: 0, max: 6, step: 1, value: shown,
-          style: { accentColor: THEME.accent, width: '120px', cursor: 'pointer' },
+          className: 'sm-range', type: 'range', min: 0, max: 6, step: 1, value: shown,
           onChange: onChange,
         }),
-        errValue ? h('span', { style: { color: THEME.error } }, errValue) : null,
+        errValue ? h('span', { className: 'sm-err' }, errValue) : null,
       )
     }
   }
 
-  // ================= 设置卡片（plugins.item） =================
+  // ================= 设置卡片（plugins.item）：DSH alias token 规范 =================
   function createCard(bridge, commit) {
     return function RecallCard(props) {
       var view = props && props.view
@@ -167,7 +232,6 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
 
       function run(ops) { setErr(commit(ops) || '') }
-
       function onToggle(next) { run([{ key: 'recallEnabled', value: !!next }]) }
       function onLevel(v) {
         if (v === 0) run([{ key: 'recallEffort', value: 0 }, { key: 'recallEnabled', value: false }])
@@ -175,6 +239,17 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
 
       var disabled = state.status !== 'ready' || !state.writable
+      var token = {
+        primary: 'var(--dsw-alias-label-primary, #0f1115)',
+        secondary: 'var(--dsw-alias-label-secondary, #61666b)',
+        tertiary: 'var(--dsw-alias-label-tertiary, #81858c)',
+        border: 'var(--dsw-alias-border-l4, #d9d9de)',
+        layer2: 'var(--dsw-alias-bg-layer-2, #f5f5f7)',
+        layer3: 'var(--dsw-alias-bg-layer-3, #ececef)',
+        accent: ACCENT,
+        error: 'var(--dsw-alias-state-error-primary, #f4212e)',
+        hover: 'var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))',
+      }
       var btnRow = h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' } },
         EFFORT_LABELS.map(function (label, i) {
           var active = state.enabled && state.effort === i
@@ -183,30 +258,33 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             onClick: function () { onLevel(i) },
             disabled: disabled,
             style: {
-              padding: '4px 10px', fontSize: '12px', borderRadius: '6px', cursor: 'pointer',
-              border: '1px solid ' + (active ? THEME.accent : THEME.border),
-              background: active ? THEME.accent : 'transparent',
-              color: active ? '#fff' : THEME.text2,
+              padding: '4px 12px', fontSize: '13px', lineHeight: '20px', borderRadius: '6px',
+              cursor: 'pointer', border: '1px solid ' + (active ? token.accent : token.border),
+              background: active ? token.accent : 'transparent',
+              color: active ? 'var(--dsw-alias-label-primary-foreground, #fff)' : token.secondary,
             },
           }, label)
         }))
 
-      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0', maxWidth: '560px' } },
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px', padding: '6px 0', maxWidth: '560px' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
           Switch({ checked: state.enabled, onChange: onToggle, label: '自动召回', disabled: disabled }),
-          h('span', null, '自动召回'),
+          h('span', { style: { fontSize: '14px', color: token.primary } }, '自动召回'),
         ),
         h('div', null,
-          h('div', { style: { marginBottom: '6px', color: THEME.text2, fontSize: '13px' } }, '召回档位（0 = 关闭）'),
+          h('div', { style: { marginBottom: '8px', color: token.secondary, fontSize: '13px' } }, '召回档位（0 = 关闭）'),
           btnRow,
         ),
         // 其他展示子面板：本版占位（数据通道 v1.3，见整体设计文档 §6.2）
-        h('div', { style: { borderTop: '1px solid ' + THEME.border, paddingTop: '10px', color: THEME.text2, fontSize: '13px' } },
-          '统计 / 诊断等只读展示：即将支持',
-        ),
-        errValue ? h('div', { style: { color: THEME.error, fontSize: '12px' } }, errValue) : null,
+        h('div', {
+          style: {
+            borderTop: '1px solid ' + token.border, paddingTop: '12px',
+            color: token.tertiary, fontSize: '13px',
+          },
+        }, '统计 / 诊断等只读展示：即将支持'),
+        errValue ? h('div', { style: { color: token.error, fontSize: '12px' } }, errValue) : null,
         !disabled && state.status === 'ready'
-          ? h('div', { style: { color: THEME.text2, fontSize: '12px' } }, '保存即生效；面板配置后档位以此为准')
+          ? h('div', { style: { color: token.tertiary, fontSize: '12px' } }, '保存即生效；面板配置后档位以此为准')
           : null,
       )
     }
@@ -218,6 +296,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   module.exports.inject = ['slots', 'configForms']
   module.exports.apply = function apply(ctx) {
     try {
+      ensureStyle('sm-recall-style', SLIDER_CSS)   // 尽早注入，避免首帧闪烁
       var scope = ctx.configForms.get(NS)
       if (!scope || typeof scope.getSnapshot !== 'function') {
         console.warn('[starmemory] configForms scope unavailable; client UI disabled')
