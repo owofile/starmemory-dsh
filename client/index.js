@@ -19,6 +19,9 @@
 //   首次无配置时 snapshot.status === 'unavailable'，由组件内降级（卡片 disabled、滑块 return null）；
 //   卡片是首次配置入口，被 gate 会整个面板不出现（测试机确诊）。
 //   v1.2.10：client 侧服务访问改回调式（bug #6：inject 多服务整批失败，ctx 只挂 fiber）。
+//   v1.2.11（bug #8 根因）：plugins.item 槽的声明者/消费者是 @deepseek-ai/dsh-client-ui-plugin-manager，
+//   不在种子表 → 必须经 package.json 的 dsh.client.inject 注入，否则槽无消费者、注册了也不渲染
+//   （测试机 0.2.2-rc.1：注册无报错但 sm-ef DOM 计数 0；对照 dsh-bili-scroll 实测能显示即因注入了槽声明者包）。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -355,6 +358,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   // ================= 设置卡片（plugins.item）：终末地工业风 =================
   function createCard(bridge, commit, t) {
     return function RecallCard(props) {
+      // 诊断（bug #8 定位，交接文档步骤 1）：组件真被调用 = 槽有消费者 = 渲染链通。
+      try { console.log('[starmemory] DEBUG RecallCard rendered, view:', props && props.view) } catch (e) {}
       var view = props && props.view
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var err = React.useState('')
@@ -434,6 +439,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   module.exports.inject = ['slots']
   module.exports.apply = function apply(ctx) {
     try {
+      // 诊断（bug #8 定位）：确认 apply 被调用 + ctx 上挂了什么服务
+      try { console.log('[starmemory] DEBUG apply called, ctx keys:', Object.keys(ctx).join(',')) } catch (e) {}
       ensureStyle('sm-ef-style', EF_CSS)
       var t = makeTranslator()
 
@@ -455,6 +462,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       // configForms 经 ctx.inject 回调拿（nekowhale 验证姿势）：scope → bridge/commit → 注册两个 slot。
       if (ctx.inject && typeof ctx.inject === 'function') {
         ctx.inject(['configForms', 'settingsSchema'], function (sctx) {
+          // 诊断（bug #8 定位）：确认 configForms 作用域里能拿到 scope + sctx 上有什么服务
+          try { console.log('[starmemory] DEBUG configForms cb, sctx keys:', Object.keys(sctx || {}).join(',')) } catch (e) {}
           var scope = (sctx && sctx.configForms) ? sctx.configForms.get(NS) : null
           // v1.2.7：首次无配置时 namespace 未暴露 → scope 存在但 snapshot.status === 'unavailable'。
           // 卡片是首次配置的入口，必须无条件注册（unavailable 由组件内降级：卡片 disabled、滑块 return null）。
@@ -471,6 +480,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
                 createSlider(bridge, commit, t),
               )
             })
+            try { console.log('[starmemory] DEBUG registered slot shell.overlay') } catch (e) {}
           } catch (e) {
             console.warn('[starmemory] slider disabled:', e)
           }
@@ -483,6 +493,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
                 createCard(bridge, commit, t),
               )
             })
+            try { console.log('[starmemory] DEBUG registered slot plugins.item') } catch (e) {}
           } catch (e) {
             console.warn('[starmemory] settings card disabled:', e)
           }

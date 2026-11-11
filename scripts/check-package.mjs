@@ -1,6 +1,7 @@
 // check-package.mjs —— 门禁：打包配置关键字段（防 v1.2.6 实测 bug 回归）。
 // 1. dsh.bundle.patch 指向的文件必须在 files 白名单（否则 npm pack 缺 bundle patch，装不上）
 // 2. dsh.client 必须用 inject 声明消费的 client 包（external DSH 不认，client half 不加载）
+// 6. dsh.client.inject 必须含 @deepseek-ai/dsh-client-ui-plugin-manager（plugins.* 槽声明者，bug #8）
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -80,6 +81,14 @@ if (!cinjMatch) {
   if (!cinj.includes('slots')) errors.push('client inject must include "slots" (slot service)')
   const bad = cinj.filter((n) => n !== 'slots')
   if (bad.length) errors.push(`client inject includes non-slots services [${bad.join(',')}]: client-side inject fails wholesale -> ctx only has fiber`)
+}
+
+// 6. dsh.client.inject 必须注入 plugins.item 槽的声明者 @deepseek-ai/dsh-client-ui-plugin-manager
+//    （bug #8：该包不在种子表，不注入则槽无消费者——注册成功但永不渲染，sm-ef DOM 计数 0；
+//     对照 dsh-bili-scroll 实测能显示即因注入了它消费的槽声明者包）。
+const dci = (client && client.inject) || []
+if (!dci.includes('@deepseek-ai/dsh-client-ui-plugin-manager')) {
+  errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-plugin-manager" (declares plugins.* slot; missing -> slot has no consumer -> card never renders)')
 }
 
 if (errors.length) {
