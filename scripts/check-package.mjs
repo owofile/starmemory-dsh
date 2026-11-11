@@ -69,6 +69,19 @@ if (!injMatch) {
   if (!inj.includes('tools')) errors.push('index.mjs inject must include "tools" (tools service)')
 }
 
+// 5. client inject 只声明 slots（bug #6：client 侧 DSH 对 inject 整批成功/整批失败，
+//    多声明 locale/configForms 会把整批带崩，ctx 只挂 fiber，一个都不挂上）。
+const clientSrc = fs.readFileSync(path.join(root, 'client', 'index.js'), 'utf8')
+const cinjMatch = clientSrc.match(/module\.exports\.inject\s*=\s*\[([^\]]*)\]/)
+if (!cinjMatch) {
+  errors.push('client/index.js: module.exports.inject not found')
+} else {
+  const cinj = cinjMatch[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean)
+  if (!cinj.includes('slots')) errors.push('client inject must include "slots" (slot service)')
+  const bad = cinj.filter((n) => n !== 'slots')
+  if (bad.length) errors.push(`client inject includes non-slots services [${bad.join(',')}]: client-side inject fails wholesale -> ctx only has fiber`)
+}
+
 if (errors.length) {
   console.error('[check-package]', errors.join('\n'))
   process.exit(1)

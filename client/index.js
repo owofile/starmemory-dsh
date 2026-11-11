@@ -9,7 +9,8 @@
 //   滑块保留彩虹/发光/循环流星（用户指定例外），按工业风外壳融合。
 //   Saira 字体需自托管（DSH 静态资源服务未验证），本版不打包字体，用宽字距+大写+字重模拟。
 //
-// 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots','locale','configForms']
+// 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots']（client 侧实测：多服务整批失败，
+//  只 inject 确定能用的 slots；configForms 经 ctx.inject 回调拿，locale 单独回调最佳努力）
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
 //     - shell.overlay  聊天区召回滑块（fixed 右上角；unavailable/关闭 → 消失）
 //     - plugins.item   Plugins 页设置卡片（Switch + 0-6 档位按钮 + 占位子面板）
@@ -17,6 +18,7 @@
 //   v1.2.7：两个 slot 均无条件注册（不 gate 在 configForms 可用性/whileServed）——
 //   首次无配置时 snapshot.status === 'unavailable'，由组件内降级（卡片 disabled、滑块 return null）；
 //   卡片是首次配置入口，被 gate 会整个面板不出现（测试机确诊）。
+//   v1.2.10：client 侧服务访问改回调式（bug #6：inject 多服务整批失败，ctx 只挂 fiber）。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -66,12 +68,17 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
 
   // makeTranslator：locale 服务可用时 bind(NS) 现取（语言切换即时生效，无需重挂载）；
   // 否则回退中文。tr(key, params)：缺 key / 抛错 → 内联中文兜底；params 替换 {占位符}。
-  function makeTranslator(localeService) {
+  // v1.2.10：locale 服务经 ctx.inject 回调异步注入 → 用 tr.setLocale() 升级 bind（闭包共享，
+  // 组件持同一 tr 引用，语言切换仍即时生效）；setLocale 前默认中文。
+  function makeTranslator() {
     var bind = null
-    if (localeService && typeof localeService.bind === 'function') {
-      try { bind = localeService.bind(NS) } catch (e) { bind = null }
+    function setLocale(localeService) {
+      bind = null
+      if (localeService && typeof localeService.bind === 'function') {
+        try { bind = localeService.bind(NS) } catch (e) { bind = null }
+      }
     }
-    return function tr(key, params) {
+    function tr(key, params) {
       var raw
       if (bind && typeof bind === 'function') {
         try { raw = bind(key) } catch (e) { raw = undefined }
@@ -84,6 +91,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
       return raw
     }
+    tr.setLocale = setLocale
+    return tr
   }
 
   // ================= 美化样式：终末地工业风（一次注入，id 幂等） =================
@@ -418,46 +427,68 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   // ================= apply：注册两个 slot（各自独立 try/catch） =================
   var module = { exports: {} }
   module.exports.name = 'starmemory-dsh-client'
-  module.exports.inject = ['slots', 'locale', 'configForms']
+  // v1.2.10：client 侧 inject 只声明 slots（nekowhale 实测姿势）。之前 inject ['slots','locale','configForms']
+  // 在 DSH 客户端整批失败（ctx 只挂 fiber，一个都没挂上，测试机 bug #6 铁证）——client 侧 DSH 对 inject
+  // 要么整批成功要么整批失败，locale/configForms 某服务名不可解析会把整批带崩。故只 inject 确定能用的 slots；
+  // configForms 经 ctx.inject 回调拿（nekowhale 姿势），locale 单独回调最佳努力（失败回退中文）。
+  module.exports.inject = ['slots']
   module.exports.apply = function apply(ctx) {
     try {
       ensureStyle('sm-ef-style', EF_CSS)
-      // i18n（v1.2.5）：注册客户端字典；失败不阻断（makeTranslator 回退内联中文）
-      if (ctx.locale && typeof ctx.locale.register === 'function') {
-        try { ctx.locale.register(NS, DICTS) } catch (e) { console.warn('[starmemory] locale register failed:', e) }
-      }
-      var t = makeTranslator(ctx.locale)
-      var scope = ctx.configForms.get(NS)
-      // v1.2.7：首次无配置时 namespace 未暴露 → scope 存在但 snapshot.status === 'unavailable'。
-      // 卡片是首次配置的入口，必须无条件注册（unavailable 由组件内降级：卡片 disabled、滑块 return null）。
-      // 不能因 scope 不可用而整体 return —— 否则首次安装面板整个不出现（测试机确诊）。
-      if (!scope || typeof scope.getSnapshot !== 'function') {
-        console.warn('[starmemory] configForms scope unavailable; card/slider show degraded state')
-      }
-      var bridge = createScopeBridge(scope)
-      var commit = makeCommit(scope, t)
+      var t = makeTranslator()
 
-      try {
-        ctx.slots.inject('shell.overlay', function () {
-          return ctx.slots.register(
-            { name: 'shell.overlay', id: 'starmemory-recall-slider', order: 100, label: function () { return t('slider.title') } },
-            createSlider(bridge, commit, t),
-          )
-        })
-      } catch (e) {
-        console.warn('[starmemory] slider disabled:', e)
+      // locale 最佳努力：单独 ctx.inject 回调拿（失败/服务名不可解析 → t 保持中文，不影响 configForms）
+      if (ctx.inject && typeof ctx.inject === 'function') {
+        try {
+          ctx.inject(['locale'], function (sctx) {
+            var localeService = sctx && sctx.locale
+            if (localeService && typeof localeService.register === 'function') {
+              try { localeService.register(NS, DICTS) } catch (e) { console.warn('[starmemory] locale register failed:', e) }
+            }
+            t.setLocale(localeService)
+          })
+        } catch (e) {
+          console.warn('[starmemory] locale inject failed:', e)
+        }
       }
 
-      // 卡片无条件注册（不 gate 在 whileServed：首次配置时 namespace 未 served，gate 会挡掉注册）。
-      try {
-        ctx.slots.inject('plugins.item', function () {
-          return ctx.slots.register(
-            { name: 'plugins.item', id: PKG, order: 50, label: function () { return 'StarMemory' } },
-            createCard(bridge, commit, t),
-          )
+      // configForms 经 ctx.inject 回调拿（nekowhale 验证姿势）：scope → bridge/commit → 注册两个 slot。
+      if (ctx.inject && typeof ctx.inject === 'function') {
+        ctx.inject(['configForms', 'settingsSchema'], function (sctx) {
+          var scope = (sctx && sctx.configForms) ? sctx.configForms.get(NS) : null
+          // v1.2.7：首次无配置时 namespace 未暴露 → scope 存在但 snapshot.status === 'unavailable'。
+          // 卡片是首次配置的入口，必须无条件注册（unavailable 由组件内降级：卡片 disabled、滑块 return null）。
+          if (!scope || typeof scope.getSnapshot !== 'function') {
+            console.warn('[starmemory] configForms scope unavailable; card/slider show degraded state')
+          }
+          var bridge = createScopeBridge(scope)
+          var commit = makeCommit(scope, t)
+
+          try {
+            ctx.slots.inject('shell.overlay', function () {
+              return ctx.slots.register(
+                { name: 'shell.overlay', id: 'starmemory-recall-slider', order: 100, label: function () { return t('slider.title') } },
+                createSlider(bridge, commit, t),
+              )
+            })
+          } catch (e) {
+            console.warn('[starmemory] slider disabled:', e)
+          }
+
+          // 卡片无条件注册（不 gate 在 whileServed：首次配置时 namespace 未 served，gate 会挡掉注册）。
+          try {
+            ctx.slots.inject('plugins.item', function () {
+              return ctx.slots.register(
+                { name: 'plugins.item', id: PKG, order: 50, label: function () { return 'StarMemory' } },
+                createCard(bridge, commit, t),
+              )
+            })
+          } catch (e) {
+            console.warn('[starmemory] settings card disabled:', e)
+          }
         })
-      } catch (e) {
-        console.warn('[starmemory] settings card disabled:', e)
+      } else {
+        console.warn('[starmemory] ctx.inject unavailable; client UI disabled')
       }
     } catch (e) {
       console.warn('[starmemory] client apply failed:', e)
