@@ -34,8 +34,10 @@ import { pingTool, PING_VERSION } from './lib/tools/memory-ping.js'
 export const name = 'starmemory-dsh'
 // 依赖注入声明：用啥服务必须在此声明，DSH 才会挂到 ctx 上（测试机实测教训：
 // inject=[] 时 ctx.tools 是 undefined，注册循环第一轮就抛错）。
-// effect 显式声明（有些版本默认在 ctx 上，但显式更符合契约）。
-export const inject = ['tools', 'effect']
+// 注意：effect 是 ctx 自带方法，不是可注入服务——绝不能写进 inject（否则 DSH
+// 等一个叫 'effect' 的服务，永远 pending 不激活，测试机 bug #5 铁证：bili-whale
+// 用 ctx.effect() 不声明也能激活）。故 inject 只列真正的服务（tools）。
+export const inject = ['tools']
 
 // ===== 设置面（v1.2.0）：召回开关 + 档位进 Plugins 页配置卡片 =====
 // 设置命名空间 = 导出 Config 的条目 id（= 'starmemory-dsh'，与包名恰好相同）。

@@ -57,6 +57,18 @@ if (!smSpec) {
   }
 }
 
+// 4. inject 只列真正的 ctx 服务。effect 是 ctx 自带方法，不是可注入服务——
+//    写进 inject 会让 DSH 等一个叫 'effect' 的服务，永远 pending 不激活（测试机 bug #5 铁证）。
+const indexSrc = fs.readFileSync(path.join(root, 'index.mjs'), 'utf8')
+const injMatch = indexSrc.match(/export\s+const\s+inject\s*=\s*\[([^\]]*)\]/)
+if (!injMatch) {
+  errors.push('index.mjs: export const inject not found')
+} else {
+  const inj = injMatch[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean)
+  if (inj.includes('effect')) errors.push('index.mjs inject includes "effect": effect is a ctx method, not a service -> host pending forever')
+  if (!inj.includes('tools')) errors.push('index.mjs inject must include "tools" (tools service)')
+}
+
 if (errors.length) {
   console.error('[check-package]', errors.join('\n'))
   process.exit(1)
