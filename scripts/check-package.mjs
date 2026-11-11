@@ -91,6 +91,22 @@ if (!dci.includes('@deepseek-ai/dsh-client-ui-plugin-manager')) {
   errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-plugin-manager" (declares plugins.* slot; missing -> slot has no consumer -> card never renders)')
 }
 
+// 7. dsh.client.inject 必须注入 @deepseek-ai/dsh-client-ui-renderer + @deepseek-ai/dsh-client-ui-layout
+//    （bug #8 收尾，v1.2.12）：nekowhale 实测能显示设置，其 inject 正是这两个 UI 基础设施包（设置槽的
+//     渲染器所在）；v1.2.11 只加 plugin-manager 仍不渲染，缺的就是设置 UI 渲染器。
+if (!dci.includes('@deepseek-ai/dsh-client-ui-renderer')) {
+  errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-renderer" (settings UI renderer; missing -> card never renders)')
+}
+if (!dci.includes('@deepseek-ai/dsh-client-ui-layout')) {
+  errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-layout" (settings UI layout; missing -> card never renders)')
+}
+
+// 8. client 源码必须注册 plugins.bundle.config（v1.2.12：plugins.item 在 0.2.2-rc.1 无消费者——注册成功但
+//    组件不渲染，4 条 DEBUG 铁证；照 nekowhale 换 plugins.bundle.config 才是能显示的槽）。
+if (!clientSrc.includes('plugins.bundle.config')) {
+  errors.push('client/index.js must register "plugins.bundle.config" (plugins.item has no consumer on 0.2.2-rc.1; switch to plugins.bundle.config)')
+}
+
 if (errors.length) {
   console.error('[check-package]', errors.join('\n'))
   process.exit(1)

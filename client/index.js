@@ -13,7 +13,7 @@
 //  只 inject 确定能用的 slots；configForms 经 ctx.inject 回调拿，locale 单独回调最佳努力）
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
 //     - shell.overlay  聊天区召回滑块（fixed 右上角；unavailable/关闭 → 消失）
-//     - plugins.item   Plugins 页设置卡片（Switch + 0-6 档位按钮 + 占位子面板）
+//     - plugins.bundle.config   Plugins 页 starmemory 包详情配置（Switch + 0-6 档位按钮；key=包名）
 //   数据源：configForms.get('starmemory-dsh') scope —— 单一事实源（Config volatile 叶）。
 //   v1.2.7：两个 slot 均无条件注册（不 gate 在 configForms 可用性/whileServed）——
 //   首次无配置时 snapshot.status === 'unavailable'，由组件内降级（卡片 disabled、滑块 return null）；
@@ -22,6 +22,10 @@
 //   v1.2.11（bug #8 根因）：plugins.item 槽的声明者/消费者是 @deepseek-ai/dsh-client-ui-plugin-manager，
 //   不在种子表 → 必须经 package.json 的 dsh.client.inject 注入，否则槽无消费者、注册了也不渲染
 //   （测试机 0.2.2-rc.1：注册无报错但 sm-ef DOM 计数 0；对照 dsh-bili-scroll 实测能显示即因注入了槽声明者包）。
+//   v1.2.12（照抄 nekowhale 整套姿势，bug #8 收尾）：v1.2.11 只加 plugin-manager 仍不渲染（4 条 DEBUG：
+//   注册成功但 RecallCard 不调用）→ plugins.item 在 0.2.2-rc.1 无消费者是铁证。改槽 plugins.bundle.config
+//   （nekowhale 实测能显示的槽）+ 注入 @deepseek-ai/dsh-client-ui-renderer + @deepseek-ai/dsh-client-ui-layout
+//   （nekowhale 注入的设置 UI 基础设施，槽声明者/渲染器所在）+ 注册元数据带 inject:()=>face + 用 sctx.slots。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -464,18 +468,30 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         ctx.inject(['configForms', 'settingsSchema'], function (sctx) {
           // 诊断（bug #8 定位）：确认 configForms 作用域里能拿到 scope + sctx 上有什么服务
           try { console.log('[starmemory] DEBUG configForms cb, sctx keys:', Object.keys(sctx || {}).join(',')) } catch (e) {}
+          // v1.2.12（照抄 nekowhale 整套姿势）：用回调作用域 sctx.slots（非外层 ctx.slots）——
+          // nekowhale 的 plugins.bundle.config 就是嵌在 ctx.inject 回调里用 sctx.slots 注册的（实测能显示）。
+          var slots = (sctx && sctx.slots) ? sctx.slots : (ctx.slots || null)
           var scope = (sctx && sctx.configForms) ? sctx.configForms.get(NS) : null
           // v1.2.7：首次无配置时 namespace 未暴露 → scope 存在但 snapshot.status === 'unavailable'。
           // 卡片是首次配置的入口，必须无条件注册（unavailable 由组件内降级：卡片 disabled、滑块 return null）。
           if (!scope || typeof scope.getSnapshot !== 'function') {
             console.warn('[starmemory] configForms scope unavailable; card/slider show degraded state')
           }
+          // face = 惰性注入给组件的数据面（nekowhale 姿势）：宿主渲染时调 inject() 把 face 展开成组件 props
+          // （useScope/useDescribe/rehydrate/mutate/unset）。hooks.scope === scope，故 createScopeBridge 直接用。
+          var mirror = (sctx && sctx.configForms && typeof sctx.configForms.describe === 'function') ? sctx.configForms.describe() : null
+          var face = {
+            hooks: { scope: scope, describe: mirror },
+            mutate: function (ops, rev) { return scope && typeof scope.mutate === 'function' ? scope.mutate(ops, rev) : Promise.resolve(false) },
+            unset: function (k) { return scope && typeof scope.unset === 'function' ? scope.unset(k) : Promise.resolve(false) },
+            rehydrate: function (json) { return sctx && sctx.settingsSchema && typeof sctx.settingsSchema.rehydrate === 'function' ? sctx.settingsSchema.rehydrate(json) : json },
+          }
           var bridge = createScopeBridge(scope)
           var commit = makeCommit(scope, t)
 
           try {
-            ctx.slots.inject('shell.overlay', function () {
-              return ctx.slots.register(
+            slots.inject('shell.overlay', function () {
+              return slots.register(
                 { name: 'shell.overlay', id: 'starmemory-recall-slider', order: 100, label: function () { return t('slider.title') } },
                 createSlider(bridge, commit, t),
               )
@@ -486,14 +502,17 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           }
 
           // 卡片无条件注册（不 gate 在 whileServed：首次配置时 namespace 未 served，gate 会挡掉注册）。
+          // v1.2.12：槽 plugins.item → plugins.bundle.config（nekowhale 实测能显示的槽；plugins.item 在
+          // 0.2.2-rc.1 无消费者——v1.2.11 注册成功但 RecallCard 不渲染，铁证）。bundle.config 用 key:PKG +
+          // inject:()=>face（07 文档 line 123：把 id/order/label 换成 key: PKG_NAME 即可，其余不变）。
           try {
-            ctx.slots.inject('plugins.item', function () {
-              return ctx.slots.register(
-                { name: 'plugins.item', id: PKG, order: 50, label: function () { return 'StarMemory' } },
+            slots.inject('plugins.bundle.config', function () {
+              return slots.register(
+                { name: 'plugins.bundle.config', key: PKG, inject: function () { return face } },
                 createCard(bridge, commit, t),
               )
             })
-            try { console.log('[starmemory] DEBUG registered slot plugins.item') } catch (e) {}
+            try { console.log('[starmemory] DEBUG registered slot plugins.bundle.config') } catch (e) {}
           } catch (e) {
             console.warn('[starmemory] settings card disabled:', e)
           }
