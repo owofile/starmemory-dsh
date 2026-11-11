@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "StarMemory",
+    "description": "Layered memory for DSH: long-term memory + fragments + SQLite archive, recalled via agent-invoked tools"
+  }
+}

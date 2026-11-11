@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "StarMemory 记忆",
+    "description": "DSH 分层记忆：长期记忆 + 碎片记忆 + SQLite 归档，由 Agent 调用工具召回"
+  }
+}

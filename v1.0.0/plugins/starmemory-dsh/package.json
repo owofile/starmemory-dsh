@@ -1,0 +1,22 @@
+{
+  "name": "starmemory-dsh",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.mjs",
+    "lib",
+    "icon.svg",
+    "locale",
+    "manual.json"
+  ],
+  "icon": "./icon.svg",
+  "license": "MIT",
+  "private": false
+}
