@@ -11,9 +11,12 @@
 //
 // 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots','locale','configForms']
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
-//     - shell.overlay  聊天区召回滑块（fixed 右上角；recallEnabled=false → 消失）
+//     - shell.overlay  聊天区召回滑块（fixed 右上角；unavailable/关闭 → 消失）
 //     - plugins.item   Plugins 页设置卡片（Switch + 0-6 档位按钮 + 占位子面板）
 //   数据源：configForms.get('starmemory-dsh') scope —— 单一事实源（Config volatile 叶）。
+//   v1.2.7：两个 slot 均无条件注册（不 gate 在 configForms 可用性/whileServed）——
+//   首次无配置时 snapshot.status === 'unavailable'，由组件内降级（卡片 disabled、滑块 return null）；
+//   卡片是首次配置入口，被 gate 会整个面板不出现（测试机确诊）。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -208,7 +211,10 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
     }
     function getSnapshot() {
-      var snap = scope.getSnapshot()
+      var snap = null
+      if (scope && typeof scope.getSnapshot === 'function') {
+        try { snap = scope.getSnapshot() } catch (e) { console.warn('[starmemory] getSnapshot failed:', e); snap = null }
+      }
       if (cache !== undefined && cache.snap === snap) return cache.state
       cache = { snap: snap, state: derive(snap) }
       return cache.state
@@ -219,7 +225,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     function subscribe(cb) {
       listeners.push(cb)
       var hostUnsub = null
-      if (typeof scope.subscribe === 'function') {
+      if (scope && typeof scope.subscribe === 'function') {
         try { hostUnsub = scope.subscribe(notify) } catch (e) { console.warn('[starmemory] scope.subscribe failed:', e) }
       }
       if (!hostUnsub && !pollTimer) {
@@ -245,7 +251,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var all = ops.slice()
       var hasFlag = all.some(function (o) { return o.key === 'recallPanelConfigured' })
       if (!hasFlag) all.push({ key: 'recallPanelConfigured', value: true })
-      if (all.length > 1 && typeof scope.mutate === 'function') {
+      if (all.length > 1 && scope && typeof scope.mutate === 'function') {
         try {
           var snap = scope.getSnapshot()
           scope.mutate(
@@ -257,7 +263,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           console.warn('[starmemory] mutate failed, fallback to set:', e)
         }
       }
-      if (typeof scope.set !== 'function') {
+      if (!scope || typeof scope.set !== 'function') {
         var msg = 'scope.set unavailable'
         console.warn('[starmemory] ' + msg)
         return msg
@@ -422,9 +428,11 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
       var t = makeTranslator(ctx.locale)
       var scope = ctx.configForms.get(NS)
+      // v1.2.7：首次无配置时 namespace 未暴露 → scope 存在但 snapshot.status === 'unavailable'。
+      // 卡片是首次配置的入口，必须无条件注册（unavailable 由组件内降级：卡片 disabled、滑块 return null）。
+      // 不能因 scope 不可用而整体 return —— 否则首次安装面板整个不出现（测试机确诊）。
       if (!scope || typeof scope.getSnapshot !== 'function') {
-        console.warn('[starmemory] configForms scope unavailable; client UI disabled')
-        return
+        console.warn('[starmemory] configForms scope unavailable; card/slider show degraded state')
       }
       var bridge = createScopeBridge(scope)
       var commit = makeCommit(scope, t)
@@ -440,14 +448,13 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         console.warn('[starmemory] slider disabled:', e)
       }
 
+      // 卡片无条件注册（不 gate 在 whileServed：首次配置时 namespace 未 served，gate 会挡掉注册）。
       try {
-        ctx.configForms.whileServed([NS], function () {
-          ctx.slots.inject('plugins.item', function () {
-            return ctx.slots.register(
-              { name: 'plugins.item', id: PKG, order: 50, label: function () { return 'StarMemory' } },
-              createCard(bridge, commit, t),
-            )
-          })
+        ctx.slots.inject('plugins.item', function () {
+          return ctx.slots.register(
+            { name: 'plugins.item', id: PKG, order: 50, label: function () { return 'StarMemory' } },
+            createCard(bridge, commit, t),
+          )
         })
       } catch (e) {
         console.warn('[starmemory] settings card disabled:', e)

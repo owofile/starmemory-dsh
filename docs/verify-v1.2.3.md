@@ -57,6 +57,14 @@ dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.5
 | B20 | Console 观察（切语言全程） | 无未捕获异常、无 React #185；`[starmemory] locale register failed` 不出现（字典注册成功） |
 | B21 | 负控（可选）：临时把 `makeTranslator` 的 `bind` 置空，重启 | 界面文案回退**中文**（不显键名）；改回 |
 
+### B4. 首次安装面板专项（v1.2.7 新增）
+
+| # | 步骤 | 期望 |
+|---|------|------|
+| B22 | **全新环境**（无 `~/.starmemory/` 也无 settings.yaml 中本插件命名空间）装 `#v1.2.7`，开 Plugins 页 | 设置卡片**出现**（召回控制 section 可见，Switch/档位按钮呈禁用/占位态），**不是面板空白**；滑块不误显示（聊天区无召回滑块） |
+| B23 | 在卡片上首次配置（开自动召回 + 选档位） | 卡片变可交互（`status` 从 `unavailable` → `ready`）；配置写入成功 |
+| B24 | Console 观察全程 | 无未捕获异常；可有 `[starmemory] configForms scope unavailable` warn（降级提示），但**无白屏、无 React #185** |
+
 ## C. 负控（白屏红线）
 
 | # | 步骤 | 期望 |
