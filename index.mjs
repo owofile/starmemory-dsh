@@ -23,6 +23,7 @@ import { createExportTool, createImportTool } from './lib/tools/export-import.js
 import { createManualTool } from './lib/tools/manual.js'
 import { createSynonymViewTool, createSynonymAddTool, createSynonymDeleteTool, createSynonymUpdateTool } from './lib/tools/synonym-map.js'
 import { createSqliteTool } from './lib/tools/sqlite.js'
+import { createRecallSetTool, createRecallEnableTool, createRecallStatusTool, createRecallPreviewTool } from './lib/tools/recall.js'
 import { pingTool } from './lib/tools/memory-ping.js'
 
 export const name = 'starmemory-dsh'
@@ -73,8 +74,11 @@ export async function apply(ctx) {
     createSynonymDeleteTool(deps),
     createSynonymUpdateTool(deps),
     createSqliteTool(deps),
+    // P3
+    createRecallSetTool(deps),
+    createRecallEnableTool(deps),
+    createRecallStatusTool(deps),
+    createRecallPreviewTool(deps),
   ]
   for (const tool of tools) ctx.tools.register(defineTool(tool))
-
-  // Phase 4 起在此追加：P3（recall_set / recall_enable / recall_status / recall_preview）
 }
