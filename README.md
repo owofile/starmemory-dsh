@@ -20,7 +20,7 @@
 ### 安装
 
 ```sh
-dsh plugin --profile web add github:owofile/starmemory-dsh#v1.0.0
+dsh plugin --profile web add github:owofile/starmemory-dsh#v1.1.0
 ```
 
 > bundle 形态自带组合 patch，安装即自动挂载（不需要再改 profile patch）。
@@ -34,7 +34,7 @@ dsh plugin --profile web add github:owofile/starmemory-dsh#v1.0.0
 ```sh
 # 仓库根（发现入口 + 当前版本）
 ├── package.json / cordis.patch.yml / index.mjs / lib/ ...
-└── v1.0.0/          # 发布快照
+└── v1.1.0/          # 发布快照
 ```
 
 ## 架构
@@ -78,13 +78,14 @@ starmemory-dsh/                      # 仓库根 = npm 包根 = 市场发现入�
 ├── locale/                          # en.json / zh.json（meta.title / meta.description）
 ├── manual.json                      # 说明书数据（memory_manual 工具消费）
 ├── lib/
-│   ├── store.js                     # 三份 JSON 数据文件读写（原子写）
-│   ├── archive.js                   # node:sqlite 归档层
-│   ├── recall.js                    # 召回引擎（四道闸门 + Token 预算 + 同义词扩展）
-│   └── tools/                       # 每工具一个定义模块（纯数据+逻辑，不 import SDK）
-├── scripts/                         # 本机开发门禁脚本（不进 files 白名单）
+│   ├── core.js                       # 常量 + 纯逻辑（默认值/类型衰减/激活度/召回引擎/关键词/同义词扩展）
+│   ├── store.js                      # 三份 JSON 数据文件读写（原子写）+ 召回运行时 + 梦想家
+│   ├── archive.js                    # node:sqlite 归档层（24 列无损 schema）
+│   ├── respond.js                    # 统一输出契约 {status,id?,count?,payload}
+│   └── tools/                        # 每工具一个定义模块（纯数据+逻辑，不 import SDK）
+├── scripts/                          # 门禁 + 迁移演练脚本（migrate.mjs，不进 files 白名单）
 ├── test/                            # node --test 单测（不进 files 白名单）
-├── v1.0.0/                          # 发布快照（VERSION.txt + INSTALL.md + 插件包快照）
+├── v1.1.0/                          # 发布快照（VERSION.txt + INSTALL.md）
 ├── docs/                            # 设计文档
 ├── png/                             # 图片资源
 ├── bugs/                            # bug 记录（按版本）
