@@ -33,6 +33,30 @@ if (client) {
   errors.push('dsh.client missing (no client half declared)')
 }
 
+// 3. schemastery 依赖必须声明且可达 >=3.19.0（.volatile() 只在 3.19.0+；3.18.1 无该方法）。
+// 未声明 → pnpm hoisted 到旧版 → Config 模块求值抛 "volatile is not a function" → 激活失败（测试机确诊 bug #4）。
+const smSpec = (pkg.dependencies && pkg.dependencies['@deepseek-ai/schemastery']) || ''
+if (!smSpec) {
+  errors.push('dependencies["@deepseek-ai/schemastery"] missing: 3.18.1 lacks .volatile(), version drift kills activation (use ^3.19.0)')
+} else {
+  const compact = smSpec.replace(/\s+/g, '')
+  const m = smSpec.match(/(?:>=|>|\^|~)?\s*(\d+)\.(\d+)(?:\.(\d+))?/)
+  const major = m ? Number(m[1]) : 3
+  const minor = m ? Number(m[2]) : 19
+  const patch = m && m[3] ? Number(m[3]) : 0
+  let canReach
+  if (compact.startsWith('<=')) {
+    canReach = major > 3 || (major === 3 && (minor > 19 || (minor === 19 && patch >= 0)))
+  } else if (compact.startsWith('<')) {
+    canReach = major > 3 || (major === 3 && (minor > 19 || (minor === 19 && patch > 0)))
+  } else {
+    canReach = major > 3 || (major === 3 && minor >= 19) || /^[\^>=\*]/.test(compact)
+  }
+  if (!canReach) {
+    errors.push(`dependencies["@deepseek-ai/schemastery"] "${smSpec}" cannot reach >=3.19.0 (needs .volatile())`)
+  }
+}
+
 if (errors.length) {
   console.error('[check-package]', errors.join('\n'))
   process.exit(1)
