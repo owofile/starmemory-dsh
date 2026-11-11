@@ -89,7 +89,7 @@ export function validateTool(tool) {
   return errors
 }
 
-// CLI 入口：扫描 lib/tools/*.js
+// CLI 入口：扫描 lib/tools/*.js（导出为描述符对象或工厂函数两种都支持）
 if (process.argv[1] && process.argv[1].endsWith('check-schema.mjs')) {
   const { readdirSync } = await import('node:fs')
   const path = await import('node:path')
@@ -99,10 +99,15 @@ if (process.argv[1] && process.argv[1].endsWith('check-schema.mjs')) {
   for (const f of readdirSync(toolsDir).filter((f) => f.endsWith('.js'))) {
     const mod = await import(pathToFileURL(path.join(toolsDir, f)).href)
     for (const [k, v] of Object.entries(mod)) {
-      if (v && typeof v === 'object' && v.name && v.execute) {
-        const errs = validateTool(v)
+      // 工厂函数：传空依赖拿描述符（仅校验 schema 形状，不真调）
+      let tool = v
+      try { if (typeof v === 'function') tool = v({ store: null, getArchive: () => null }) } catch (e) {
+        console.error(`[FAIL] ${f} # ${k}: 工厂构造失败 ${e.message}`); bad++; continue
+      }
+      if (tool && typeof tool === 'object' && tool.name && tool.execute) {
+        const errs = validateTool(tool)
         if (errs.length) { bad++; console.error(`[FAIL] ${f} # ${k}`); for (const e of errs) console.error(`  - ${e}`) }
-        else console.log(`[OK]   ${f} # ${k} (${v.name})`)
+        else console.log(`[OK]   ${f} # ${k} (${tool.name})`)
       }
     }
   }
