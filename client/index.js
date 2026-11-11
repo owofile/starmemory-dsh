@@ -25,6 +25,10 @@
 //   但那是设计错位——主人要的是主设置页独立分区，不是插件详情页小卡片。
 //   v1.2.13（本版）：移除插件详情页卡片（plugins.bundle.config + createCard），改注册 settings.section
 //   主设置页面板（createSection，Switch + 0-6 档位），数据仍走 configForms scope，与 shell.overlay 滑块同源。
+//   v1.2.14（本版）：首次配置死锁修复——host 未 served namespace 时 status==='unavailable'、控件 disabled、
+//   无法写入（死锁）。createSection 加 useEffect：unavailable 时用 scope.mutate（op:'set' 框架形状）写默认值
+//   {recallEnabled:false, recallEffort:0}（commit 会补 recallPanelConfigured:true），host served → status ready
+//   → 解锁。同时修 makeCommit 的 ops 形状 type:'set' → op:'set'（与 nekowhale 一致，否则写入失败）。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -270,7 +274,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         try {
           var snap = scope.getSnapshot()
           scope.mutate(
-            all.map(function (o) { return { type: 'set', path: [o.key], value: o.value } }),
+            all.map(function (o) { return { op: 'set', path: [o.key], value: o.value } }),
             snap && snap.revision,
           )
           return null
@@ -361,11 +365,33 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   // ================= 设置页面板（settings.section）：主设置页独立分区 =================
   // 设计归属：召回开关 + 0-6 档位本就该在主设置页（像 bili-scroll「刷B站」），不是插件详情页卡片。
   // 组件经闭包拿 bridge/commit（configForms scope 单一事实源）；settings.section 是 keyed 槽，id=包名。
-  function createSection(bridge, commit, t) {
+  function createSection(bridge, commit, t, scope) {
     return function StarMemorySection() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var err = React.useState('')
       var errValue = err[0], setErr = err[1]
+      var unlockRef = React.useRef(false)
+
+      // v1.2.14 首次配置死锁解锁：host 未 served 本 namespace → snapshot.status === 'unavailable'
+      // → Switch/按钮 disabled → 无法写入 → 死锁。写一次默认值，host 收到写入即 served
+      // （mutate → mirror.acceptView 折回 view → derive → status ready），控件解锁。
+      // 用 scope.mutate（框架形状 op:'set'，与 nekowhale line 568 一致）而非 commit（fire-and-forget，
+      // 无法检测失败）；失败重置 ref，状态仍 unavailable 时后续可重试。
+      React.useEffect(function () {
+        if (state.status !== 'unavailable' || unlockRef.current) return
+        if (!scope || typeof scope.mutate !== 'function') return
+        unlockRef.current = true
+        scope.mutate([
+          { op: 'set', path: ['recallEnabled'], value: false },
+          { op: 'set', path: ['recallEffort'], value: 0 },
+          { op: 'set', path: ['recallPanelConfigured'], value: true },
+        ]).then(function (ok) {
+          if (ok === false) throw new Error('host rejected first-config write')
+        }).catch(function (e) {
+          console.warn('[starmemory] first-config unlock failed:', e)
+          unlockRef.current = false
+        })
+      }, [state.status])
 
       function run(ops) { setErr(commit(ops) || '') }
       function onToggle(next) { run([{ key: 'recallEnabled', value: !!next }]) }
@@ -490,7 +516,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             slots.inject('settings.section', function () {
               return slots.register(
                 { name: 'settings.section', id: PKG, order: 50, label: 'StarMemory' },
-                createSection(bridge, commit, t),
+                createSection(bridge, commit, t, scope),
               )
             })
             try { console.log('[starmemory] DEBUG registered slot settings.section') } catch (e) {}
