@@ -246,7 +246,18 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var shown = dragValue === null ? state.effort : dragValue
       var pct = (shown / 6) * 100
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
-      return h('div', { className: 'sm-ef sm-ef-slider', style: { '--sm-fill': pct + '%' } },
+      // 关键视觉内联（13-gotchas §4：宿主可能清理/覆盖注入 style，内联优先级最高）。
+      // 定位/布局/配色/token 内联承载，style 被清时 UI 降级而非错位/消失；
+      // 仅伪元素（星点/thumb/划痕动画）留 style 注入（伪元素无法内联）。
+      return h('div', { className: 'sm-ef sm-ef-slider', style: {
+        position: 'fixed', top: 16, right: 16, zIndex: 9999,
+        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+        background: '#161616', border: '1px solid #353535', borderRadius: 0,
+        clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)',
+        overflow: 'hidden',
+        '--ef-ink': '#EDEDED', '--ef-ink2': '#A3A3A3', '--ef-rule': '#353535', '--ef-cut': '10px',
+        '--sm-rainbow': RAINBOW, '--sm-fill': pct + '%',
+      } },
         h('div', { className: 'sm-stars' }),
         h('div', { className: 'sm-streak' }),
         h('div', { className: 'sm-eyebrow' },
@@ -307,7 +318,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             label)
         }))
 
-      return h('div', { className: 'sm-ef sm-ef-card' },
+      return h('div', { className: 'sm-ef sm-ef-card', style: {
+        display: 'flex', flexDirection: 'column', gap: 0, padding: '4px 0', maxWidth: 560,
+      } },
         h('div', { className: 'sm-section' },
           h('div', { className: 'sm-eyebrow' },
             h('span', { className: 'sm-en' }, '// RECALL'),

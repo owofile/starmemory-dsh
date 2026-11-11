@@ -1,6 +1,6 @@
 {
   "name": "starmemory-dsh",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "type": "module",
   "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回；v1.2.0 起含 Plugins 页设置卡片与聊天区召回滑块（client half）",
   "main": "./index.mjs",
