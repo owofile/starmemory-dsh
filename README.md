@@ -30,7 +30,7 @@
 ## 安装
 
 ```sh
-dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.1
+dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.2
 ```
 
 > 必须走 plugin_manager 正规安装：它会自动注入 `@deepseek-ai/dsh-tools` SDK；手动 link 会报 `Cannot find package`（需自行补链接）。

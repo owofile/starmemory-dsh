@@ -28,13 +28,17 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   var EFFORT_LABELS = ['OFF', '极轻', '轻', '中', '较强', '强', '最强']
 
   // ================= 美化样式：一次注入（id 幂等） =================
-  // 聊天滑块：迷你星空 + 像素流星。深空底不随主题（星空widget独立成立），
-  // 强调色走 alias token（深色自动适配）。卡片走 DSH alias token。
+  // 聊天滑块：迷你星空 + 彩虹流星（v1.2.2 起彩虹渐变，多主题自适应）。
+  // 深空底不随主题（星空widget独立成立）；彩虹在明暗主题下都醒目。
+  // 卡片走 DSH alias token。纯 CSS，无图片/字体资源。
+  var RAINBOW = 'linear-gradient(90deg,#ff5f6d,#ffc371,#47e891,#36c5f0,#7c6cff,#ff5f9e)'
+  // 卡片强调色走 alias token（设置面一致性，明暗主题自适应）
   var ACCENT = 'var(--dsw-alias-state-business-primary, #1d9bf0)'
   var SLIDER_CSS = [
-    '.sm-recall-slider{position:fixed;top:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:9px;',
-    'padding:8px 12px;background:linear-gradient(135deg,#0b1026,#141b3a);border:1px solid #2a3358;',
-    'border-radius:6px;box-shadow:0 0 0 1px rgba(29,155,240,.10),0 4px 18px rgba(0,0,0,.45);',
+    '.sm-recall-slider{--sm-rainbow:' + RAINBOW + ';position:fixed;top:16px;right:16px;z-index:9999;',
+    'display:flex;align-items:center;gap:9px;padding:8px 12px;',
+    'background:linear-gradient(135deg,#0b1026,#141b3a);border:1px solid #2a3358;',
+    'border-radius:6px;box-shadow:0 0 0 1px rgba(54,197,240,.12),0 4px 18px rgba(0,0,0,.45);',
     'font-family:"Courier New",monospace;overflow:hidden;}',
     '.sm-recall-slider .sm-stars{position:absolute;inset:0;pointer-events:none;z-index:0;}',
     '.sm-recall-slider .sm-stars::before{content:"";position:absolute;width:2px;height:2px;background:#fff;',
@@ -44,32 +48,36 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '210px 30px 0 0 #fff,60px 34px 0 0 rgba(255,255,255,.4),135px 2px 0 0 rgba(255,255,255,.5),',
     '88px 2px 0 0 rgba(255,255,255,.35),180px 3px 0 0 rgba(255,255,255,.5),20px 30px 0 0 rgba(255,255,255,.35);}',
     '.sm-recall-slider .sm-streak{position:absolute;top:8px;left:0;width:46px;height:2px;z-index:0;',
-    'background:linear-gradient(90deg,transparent,' + ACCENT + ',transparent);opacity:0;',
+    'background:linear-gradient(90deg,transparent,#ffc371,#36c5f0,transparent);opacity:0;',
     'animation:sm-shoot 7s linear infinite;pointer-events:none;}',
     '@keyframes sm-shoot{0%{transform:translateX(-60px);opacity:0}5%{opacity:.9}45%{opacity:.7}',
     '60%{transform:translateX(240px);opacity:0}100%{transform:translateX(240px);opacity:0}}',
     '.sm-recall-slider .sm-meteor{position:relative;z-index:1;width:8px;height:8px;border-radius:1px;',
-    'background:' + ACCENT + ';box-shadow:0 0 6px ' + ACCENT + ',',
-    '-6px 0 0 -1px color-mix(in srgb,' + ACCENT + ' 60%,transparent),',
-    '-12px 0 0 -2px color-mix(in srgb,' + ACCENT + ' 30%,transparent);}',
+    'background:var(--sm-rainbow);box-shadow:0 0 6px rgba(54,197,240,.8),',
+    '-6px 0 0 -1px rgba(255,95,109,.55),-12px 0 0 -2px rgba(255,195,113,.35);}',
     '.sm-recall-slider .sm-label{position:relative;z-index:1;font-size:12px;letter-spacing:.5px;',
     'color:#dfe6ff;white-space:nowrap;}',
-    '.sm-recall-slider .sm-label .sm-lv{color:' + ACCENT + ';}',
-    '.sm-recall-slider .sm-range{-webkit-appearance:none;appearance:none;position:relative;z-index:1;',
-    'width:132px;height:12px;background:transparent;outline:none;cursor:pointer;}',
-    '.sm-recall-slider .sm-range::-webkit-slider-runnable-track{height:6px;border-radius:2px;',
-    'background:repeating-linear-gradient(90deg,transparent 0 17px,rgba(0,0,0,.45) 17px 19px),',
-    'linear-gradient(90deg,' + ACCENT + ' 0,' + ACCENT + ' var(--sm-fill,0%),#1b2246 var(--sm-fill,0%));}',
+    '.sm-recall-slider .sm-label .sm-lv{background:var(--sm-rainbow);-webkit-background-clip:text;',
+    'background-clip:text;color:transparent;}',
+    '.sm-recall-slider .sm-sliderwrap{position:relative;z-index:1;width:132px;height:12px;}',
+    '.sm-recall-slider .sm-track{position:absolute;left:0;right:0;top:3px;height:6px;border-radius:2px;',
+    'background:repeating-linear-gradient(90deg,#1b2246 0 17px,rgba(0,0,0,.5) 17px 19px);}',
+    '.sm-recall-slider .sm-fill{position:absolute;left:0;top:3px;height:6px;border-radius:2px;',
+    'width:var(--sm-fill,0%);background:var(--sm-rainbow);opacity:.85;transition:width .1s linear;}',
+    '.sm-recall-slider .sm-range{-webkit-appearance:none;appearance:none;position:relative;z-index:2;',
+    'width:132px;height:12px;margin:0;background:transparent;outline:none;cursor:pointer;}',
+    '.sm-recall-slider .sm-range::-webkit-slider-runnable-track{height:12px;background:transparent;}',
     '.sm-recall-slider .sm-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
-    'width:10px;height:10px;margin-top:-2px;border-radius:1px;background:#fff;border:1px solid ' + ACCENT + ';',
-    'box-shadow:0 0 8px ' + ACCENT + ',7px 0 0 -2px color-mix(in srgb,' + ACCENT + ' 65%,transparent),',
-    '14px 0 0 -4px color-mix(in srgb,' + ACCENT + ' 35%,transparent),',
-    '21px 0 0 -6px color-mix(in srgb,' + ACCENT + ' 18%,transparent);}',
-    '.sm-recall-slider .sm-range::-moz-range-track{height:6px;border-radius:2px;background:#1b2246;}',
-    '.sm-recall-slider .sm-range::-moz-range-progress{height:6px;border-radius:2px;background:' + ACCENT + ';}',
-    '.sm-recall-slider .sm-range::-moz-range-thumb{width:10px;height:10px;border-radius:1px;background:#fff;',
-    'border:1px solid ' + ACCENT + ';box-shadow:0 0 8px ' + ACCENT + ';}',
+    'width:11px;height:11px;margin-top:-1px;border-radius:1px;background:var(--sm-rainbow);',
+    'border:1px solid rgba(255,255,255,.75);',
+    'box-shadow:0 0 8px rgba(54,197,240,.9),7px 0 0 -2px rgba(255,95,109,.6),',
+    '14px 0 0 -4px rgba(255,195,113,.4),21px 0 0 -6px rgba(54,197,240,.25);}',
+    '.sm-recall-slider .sm-range::-moz-range-track{height:12px;background:transparent;}',
+    '.sm-recall-slider .sm-range::-moz-range-thumb{width:11px;height:11px;border-radius:1px;',
+    'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.75);',
+    'box-shadow:0 0 8px rgba(54,197,240,.9);}',
     '.sm-recall-slider .sm-err{position:relative;z-index:1;font-size:11px;color:#f4212e;}',
+    '@media (prefers-reduced-motion: reduce){.sm-recall-slider .sm-streak{animation:none;opacity:0;}}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -209,10 +217,14 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         h('div', { className: 'sm-meteor' }),
         h('span', { className: 'sm-label' }, '召回 ',
           h('span', { className: 'sm-lv' }, EFFORT_LABELS[shown] || shown)),
-        h('input', {
-          className: 'sm-range', type: 'range', min: 0, max: 6, step: 1, value: shown,
-          onChange: onChange,
-        }),
+        h('div', { className: 'sm-sliderwrap' },
+          h('div', { className: 'sm-track' }),
+          h('div', { className: 'sm-fill' }),
+          h('input', {
+            className: 'sm-range', type: 'range', min: 0, max: 6, step: 1, value: shown,
+            onChange: onChange,
+          }),
+        ),
         errValue ? h('span', { className: 'sm-err' }, errValue) : null,
       )
     }
