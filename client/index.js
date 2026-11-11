@@ -9,11 +9,12 @@
 //   滑块保留彩虹/发光/循环流星（用户指定例外），按工业风外壳融合。
 //   Saira 字体需自托管（DSH 静态资源服务未验证），本版不打包字体，用宽字距+大写+字重模拟。
 //
-// 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots','configForms']
+// 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots','locale','configForms']
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
 //     - shell.overlay  聊天区召回滑块（fixed 右上角；recallEnabled=false → 消失）
 //     - plugins.item   Plugins 页设置卡片（Switch + 0-6 档位按钮 + 占位子面板）
 //   数据源：configForms.get('starmemory-dsh') scope —— 单一事实源（Config volatile 叶）。
+//   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
   'use strict'
@@ -25,7 +26,62 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
 
   var NS = 'starmemory-dsh'
   var PKG = 'starmemory-dsh'
-  var EFFORT_LABELS = ['OFF', '极轻', '轻', '中', '较强', '强', '最强']
+
+  // ================= i18n（v1.2.5）：客户端字典（08-i18n §1 手写单文件变体） =================
+  // 键点分小写、≥2 段；zh/en 键集一致；同一键两侧 {占位符} 集一致。
+  // locale 服务缺席/缺键时回退内联中文（界面不会变键名，08 §7 autofork 模式）。
+  var DICTS = {
+    zh: {
+      'slider.title': '召回',
+      'card.controlTitle': '召回控制',
+      'card.autoRecall': '自动召回',
+      'card.effortNote': '召回档位（0 = 关闭，档位越高注入越强）',
+      'card.observeTitle': '观察面板',
+      'card.observePlaceholder': '统计、归档状态与诊断摘要将在这里以只读形式展示。',
+      'card.saveNote': '保存即生效；面板配置后档位以此为准',
+      'card.summaryOn': '召回已开启 · {level} 档',
+      'card.summaryOff': '召回已关闭',
+      'error.writeFailed': '写入失败',
+      'effort.0': 'OFF', 'effort.1': '极轻', 'effort.2': '轻', 'effort.3': '中',
+      'effort.4': '较强', 'effort.5': '强', 'effort.6': '最强',
+    },
+    en: {
+      'slider.title': 'Recall',
+      'card.controlTitle': 'Recall Control',
+      'card.autoRecall': 'Auto Recall',
+      'card.effortNote': 'Recall level (0 = off, higher = stronger)',
+      'card.observeTitle': 'Observe',
+      'card.observePlaceholder': 'Stats, archive status and diagnosis summary will show here read-only.',
+      'card.saveNote': 'Takes effect immediately; panel config is authoritative once set',
+      'card.summaryOn': 'Recall on · {level}',
+      'card.summaryOff': 'Recall off',
+      'error.writeFailed': 'Write failed',
+      'effort.0': 'OFF', 'effort.1': 'Minimal', 'effort.2': 'Light', 'effort.3': 'Medium',
+      'effort.4': 'Strong', 'effort.5': 'Heavy', 'effort.6': 'Max',
+    },
+  }
+
+  // makeTranslator：locale 服务可用时 bind(NS) 现取（语言切换即时生效，无需重挂载）；
+  // 否则回退中文。tr(key, params)：缺 key / 抛错 → 内联中文兜底；params 替换 {占位符}。
+  function makeTranslator(localeService) {
+    var bind = null
+    if (localeService && typeof localeService.bind === 'function') {
+      try { bind = localeService.bind(NS) } catch (e) { bind = null }
+    }
+    return function tr(key, params) {
+      var raw
+      if (bind && typeof bind === 'function') {
+        try { raw = bind(key) } catch (e) { raw = undefined }
+      }
+      if (raw == null || raw === key) raw = DICTS.zh[key] != null ? DICTS.zh[key] : key
+      if (params) {
+        Object.keys(params).forEach(function (k) {
+          raw = String(raw).split('{' + k + '}').join(String(params[k]))
+        })
+      }
+      return raw
+    }
+  }
 
   // ================= 美化样式：终末地工业风（一次注入，id 幂等） =================
   // 固定规则：唯一强调色只做填充 / 切角=可点击 / 细线分区 / 宽体大写英+粗体中 /
@@ -184,7 +240,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   }
 
   // ================= 写路径：直接写模式（优先 set，回退 mutate） =================
-  function makeCommit(scope) {
+  function makeCommit(scope, t) {
     return function commit(ops) {
       var all = ops.slice()
       var hasFlag = all.some(function (o) { return o.key === 'recallPanelConfigured' })
@@ -208,14 +264,14 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
       for (var i = 0; i < all.length; i++) {
         try { scope.set(all[i].key, all[i].value) }
-        catch (e) { console.warn('[starmemory] set failed:', e); return '写入失败' }
+        catch (e) { console.warn('[starmemory] set failed:', e); return t('error.writeFailed') }
       }
       return null
     }
   }
 
   // ================= 聊天区召回滑块（shell.overlay）：工业命令栏 + 彩虹流星 =================
-  function createSlider(bridge, commit) {
+  function createSlider(bridge, commit, t) {
     return function RecallSlider() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var local = React.useState(null)
@@ -262,7 +318,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         h('div', { className: 'sm-streak' }),
         h('div', { className: 'sm-eyebrow' },
           h('span', { className: 'sm-en' }, '// RECALL'),
-          h('span', { className: 'sm-zh' }, '召回'),
+          h('span', { className: 'sm-zh' }, t('slider.title')),
         ),
         h('div', { className: 'sm-num' },
           h('span', { className: 'sm-n' }, 'No.' + pad(shown)),
@@ -282,7 +338,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   }
 
   // ================= 设置卡片（plugins.item）：终末地工业风 =================
-  function createCard(bridge, commit) {
+  function createCard(bridge, commit, t) {
     return function RecallCard(props) {
       var view = props && props.view
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
@@ -292,7 +348,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       if (view === 'summary') {
         return h('span', { className: 'sm-ef sm-ef-eyebrow' },
           h('span', { className: 'sm-en' }, '// RECALL'),
-          h('span', { className: 'sm-zh' }, state.enabled ? '召回已开启 · ' + EFFORT_LABELS[state.effort] : '召回已关闭'),
+          h('span', { className: 'sm-zh' }, state.enabled
+            ? t('card.summaryOn', { level: t('effort.' + state.effort) })
+            : t('card.summaryOff')),
         )
       }
 
@@ -306,7 +364,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var disabled = state.status !== 'ready' || !state.writable
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
       var btnRow = h('div', { className: 'sm-btns' },
-        EFFORT_LABELS.map(function (label, i) {
+        [0, 1, 2, 3, 4, 5, 6].map(function (i) {
           var active = state.enabled && state.effort === i
           return h('button', {
             key: i,
@@ -315,7 +373,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             disabled: disabled,
           },
             h('span', { className: 'sm-n' }, pad(i)),
-            label)
+            t('effort.' + i))
         }))
 
       return h('div', { className: 'sm-ef sm-ef-card', style: {
@@ -324,28 +382,28 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         h('div', { className: 'sm-section' },
           h('div', { className: 'sm-eyebrow' },
             h('span', { className: 'sm-en' }, '// RECALL'),
-            h('span', { className: 'sm-zh' }, '召回控制'),
+            h('span', { className: 'sm-zh' }, t('card.controlTitle')),
           ),
           h('div', { className: 'sm-row' },
-            Switch({ checked: state.enabled, onChange: onToggle, label: '自动召回', disabled: disabled }),
-            h('span', { className: 'sm-ctl-label' }, '自动召回'),
+            Switch({ checked: state.enabled, onChange: onToggle, label: t('card.autoRecall'), disabled: disabled }),
+            h('span', { className: 'sm-ctl-label' }, t('card.autoRecall')),
           ),
           h('div', null,
-            h('div', { className: 'sm-note', style: { marginBottom: '8px' } }, '召回档位（0 = 关闭，档位越高注入越强）'),
+            h('div', { className: 'sm-note', style: { marginBottom: '8px' } }, t('card.effortNote')),
             btnRow,
           ),
         ),
         h('div', { className: 'sm-section' },
           h('div', { className: 'sm-eyebrow' },
             h('span', { className: 'sm-en' }, '// OBSERVE'),
-            h('span', { className: 'sm-zh' }, '观察面板'),
+            h('span', { className: 'sm-zh' }, t('card.observeTitle')),
           ),
           h('div', { className: 'sm-placeholder' },
-            '统计、归档状态与诊断摘要将在这里以只读形式展示。'),
+            t('card.observePlaceholder')),
         ),
         errValue ? h('div', { className: 'sm-section' }, h('span', { className: 'sm-err' }, errValue)) : null,
         !disabled && state.status === 'ready'
-          ? h('div', { className: 'sm-section' }, h('div', { className: 'sm-note' }, '保存即生效；面板配置后档位以此为准'))
+          ? h('div', { className: 'sm-section' }, h('div', { className: 'sm-note' }, t('card.saveNote')))
           : null,
       )
     }
@@ -354,23 +412,28 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   // ================= apply：注册两个 slot（各自独立 try/catch） =================
   var module = { exports: {} }
   module.exports.name = 'starmemory-dsh-client'
-  module.exports.inject = ['slots', 'configForms']
+  module.exports.inject = ['slots', 'locale', 'configForms']
   module.exports.apply = function apply(ctx) {
     try {
       ensureStyle('sm-ef-style', EF_CSS)
+      // i18n（v1.2.5）：注册客户端字典；失败不阻断（makeTranslator 回退内联中文）
+      if (ctx.locale && typeof ctx.locale.register === 'function') {
+        try { ctx.locale.register(NS, DICTS) } catch (e) { console.warn('[starmemory] locale register failed:', e) }
+      }
+      var t = makeTranslator(ctx.locale)
       var scope = ctx.configForms.get(NS)
       if (!scope || typeof scope.getSnapshot !== 'function') {
         console.warn('[starmemory] configForms scope unavailable; client UI disabled')
         return
       }
       var bridge = createScopeBridge(scope)
-      var commit = makeCommit(scope)
+      var commit = makeCommit(scope, t)
 
       try {
         ctx.slots.inject('shell.overlay', function () {
           return ctx.slots.register(
-            { name: 'shell.overlay', id: 'starmemory-recall-slider', order: 100, label: '召回滑块' },
-            createSlider(bridge, commit),
+            { name: 'shell.overlay', id: 'starmemory-recall-slider', order: 100, label: function () { return t('slider.title') } },
+            createSlider(bridge, commit, t),
           )
         })
       } catch (e) {
@@ -382,7 +445,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           ctx.slots.inject('plugins.item', function () {
             return ctx.slots.register(
               { name: 'plugins.item', id: PKG, order: 50, label: function () { return 'StarMemory' } },
-              createCard(bridge, commit),
+              createCard(bridge, commit, t),
             )
           })
         })
