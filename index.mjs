@@ -27,7 +27,10 @@ import { createRecallSetTool, createRecallEnableTool, createRecallStatusTool, cr
 import { pingTool } from './lib/tools/memory-ping.js'
 
 export const name = 'starmemory-dsh'
-export const inject = []
+// 依赖注入声明：用啥服务必须在此声明，DSH 才会挂到 ctx 上（测试机实测教训：
+// inject=[] 时 ctx.tools 是 undefined，注册循环第一轮就抛错）。
+// effect 显式声明（有些版本默认在 ctx 上，但显式更符合契约）。
+export const inject = ['tools', 'effect']
 
 export async function apply(ctx) {
   const { defineTool } = await import('@deepseek-ai/dsh-tools')
