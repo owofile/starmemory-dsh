@@ -14,32 +14,23 @@ v1.0.0 是 StarMemory 的 DSH（DeepSeek Harness）首个版本：从 OpenCode �
 
 ## 安装步骤
 
-### 1. 安装插件（git 源，一行）
+### 1. 安装插件（git 源，一行，bundle 自动挂载）
 
 ```sh
-dsh plugin --profile web add github:owofile/starmemory-dsh#path:/v1.0.0/plugins/starmemory-dsh
+dsh plugin --profile web add github:owofile/starmemory-dsh#v1.0.0
 ```
 
-### 2. profile 组合层写 insert 行
+> bundle 自带组合 patch（`cordis.patch.yml` insert 自身），安装即自动进入 profile bundles 列表，**不需要手写 insert 行**。
+> 不钉版本写 `github:owofile/starmemory-dsh`（默认分支 HEAD）；建议钉 tag。旧版本用对应 tag（`#vX.Y.Z`）。
 
-编辑 profile 的 `cordis.patch.yml`（web profile 在 `$DSH_HOME/profiles/web/cordis.patch.yml`）：
-
-```yaml
-- insert:
-    - id: starmemory-dsh
-      name: 'starmemory-dsh'
-```
-
-> `name` 必须加引号（YAML 保留字符）；patch 文件不能是空文件，暂无其他行时写 `[]`。
-
-### 3. 验证
+### 2. 验证
 
 1. 启动 / 重启 dsh，启动日志无 `plugin tree failed to load` / `did not activate`
 2. Plugins 页能看到 StarMemory（图标、标题、描述正常）
 3. 新开会话，让 Agent 调 `memory_ping` → 返回 `{ status: 'ok', version: '1.0.0' }`
 4. 全链路真调：`memory_fragment_add` 写一条 → `memory_fragment_search` 能搜到 → `memory_fragment_deep_search` 深查归档
 
-### 4. 数据迁移（从 OpenCode 版）
+### 3. 数据迁移（从 OpenCode 版）
 
 旧数据（OpenCode 版的 `memory.json` / `fragments.json` / `associations_map.json` / `fragment_archive.db`）用 `memory_import` 或随包迁移脚本导入 `~/.starmemory/`。迁移是拷贝不是剪切，旧数据原样保留，OpenCode 版可继续使用。
 

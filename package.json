@@ -17,6 +17,11 @@
     "manual.json"
   ],
   "icon": "./icon.svg",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "license": "MIT",
   "private": false
 }

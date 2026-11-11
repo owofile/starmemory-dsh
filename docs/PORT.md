@@ -78,11 +78,18 @@ manual.json 与 fragment-config.json 作为**随包只读资产**放进包内（
 
 ## 2. 形态决策（make-dsh-plugin Step 0）
 
-**选：纯 cordis 插件包**（npm 包 + Cordis entry，无 `dsh.bundle.patch`），Phase 1-4 不带 UI。
+**选：bundle 插件包**（npm 包 + Cordis entry + `dsh.bundle.patch` 自带组合 patch），Phase 1-4 不带 client half UI。
 
-- 判据：有代码 → npm 包；暂不需要组合层（单插件、用户 profile patch 手写一行 insert）→ 纯 cordis。
-- Phase 5 若做设置页/面板（client half），再升级为 bundle（声明 `dsh.bundle.patch`），**不必提前**。
-- 安装通道：`dsh plugin --profile web add <包>`，然后用户在 profile 的 `cordis.patch.yml` 写一行 insert（§9 给出模板）。
+- 决策依据（v1.0.0 期间定案）：市场索引按 `dsh.bundle` 发现（references/12 §B），bundle 安装
+  自动进入 profile bundles 列表（真一行安装，无需用户手写 insert 行）；纯 cordis 形态
+  商店不可发现且要多一步手写 patch。bundle 化代价极小（一个 cordis.patch.yml + package.json
+  一个字段）。
+- client half（设置页/面板）仍后置 Phase 5，形态不变（bundle 本就支持 client half）。
+- 安装通道：`dsh plugin --profile web add github:owofile/starmemory-dsh#v1.0.0`（bundle 自动挂载）。
+- **版本与发布结构**：**仓库根 = npm 包根 = 市场发现入口**（generator 只认根 package.json
+  声明的 bundle）；`vX.Y.Z/` 目录是发布快照（人类归档，不参与发现）；版本由根 package.json
+  `version` + git tag（`vX.Y.Z`）管理，两者必须严格对应；`private: false`、无 prepare
+  构建脚本（产物入库，零 allowBuilds 放行）。
 
 **硬约束（来自 references，违反即失败）**：
 
@@ -103,8 +110,9 @@ manual.json 与 fragment-config.json 作为**随包只读资产**放进包内（
 ## 3. 目标仓库布局
 
 ```
-starmemory-dsh/                    # 包根 = 仓库根（无 .dsh-plugin 子目录）
-├── package.json                   # name/version/main/exports/files/icon；无 dsh 字段（Phase 5 前）
+starmemory-dsh/                    # 仓库根 = npm 包根 = 市场发现入口
+├── package.json                   # name/version/main/exports/files/icon + dsh.bundle.patch；依赖三字段留空
+├── cordis.patch.yml               # bundle 组合 patch：insert 自身（name 必须加引号）
 ├── icon.svg                       # 36x36 透明画布（§7）
 ├── locale/en.json  locale/zh.json # meta.title / meta.description（§7）
 ├── index.mjs                      # Cordis entry：name / inject / apply
@@ -115,9 +123,14 @@ starmemory-dsh/                    # 包根 = 仓库根（无 .dsh-plugin 子目
 │   ├── tools/                     # 每工具一个文件，defineTool 定义（index.mjs 汇总注册）
 │   ├── manual.json                # 随包只读资产（源 manual.json 直拷）
 │   └── migrate.js                 # 一次性旧数据导入（§6.2）
-├── scripts/                       # 开发自测脚本（link SDK、起 dev 实例），不进 files
+├── scripts/                       # 开发自测脚本（schema 门禁等），不进 files
+├── test/                          # node --test 单测，不进 files
+├── v1.0.0/                        # 发布快照（VERSION.txt + INSTALL.md + 插件包快照，不参与发现）
+├── docs/  png/  bugs/             # 与 opencode 版仓库同架构
 └── README.md                      # 使用者向（Phase 4 写，<200 行，无 emoji）
 ```
+
+> 版本发布方式：更新根 package.json 的 version → 快照到 vX.Y.Z/ → 打 vX.Y.Z git tag（tag 与根包版本严格对应）。
 
 entry 骨架：
 
@@ -291,10 +304,18 @@ dataRoot = process.env.STARMEMORY_DATA_DIR
   "main": "./index.mjs",
   "exports": { ".": "./index.mjs", "./package.json": "./package.json", "./locale/*.json": "./locale/*.json" },
   "files": [ "index.mjs", "lib", "icon.svg", "locale" ],
-  "icon": "./icon.svg"
+  "icon": "./icon.svg",
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
   // dependencies / peerDependencies / devDependencies 三处全空（§2 硬约束 1）
 }
 ```
+
+- cordis.patch.yml（bundle 组合 patch，随包分发）：
+  ```yaml
+  - insert:
+      - id: starmemory-dsh
+        name: 'starmemory-dsh'   # name 必须加引号（YAML 保留字符）；文件不能为空，暂无其他行写 []
+  ```
 
 - **icon**：顶层 `icon` 字段（不是 `dsh.icon`）；36x36 透明画布、显式填色（不依赖宿主
   currentColor）、无字体字形/外链/脚本、≤256KiB、realpath 必须在包目录内。画完**实际查看
@@ -303,8 +324,8 @@ dataRoot = process.env.STARMEMORY_DATA_DIR
 - **locale**：`en.json` / `zh.json` 各含 `meta.title` / `meta.description`；**新增键必须
   中英同时补**（缺键 `t()` 回落成键本身，gotchas §17）。
 - `files` 白名单要含 icon / locale / lib（含 manual.json 资产）。
-- 纯 cordis 形态 `dsh` 字段先不声明；Phase 5 升级 bundle 时按 references/05 补
-  `dsh.bundle.patch`（patch 覆盖是**整行替换**不是深合并；`config.id` 发布后不改）。
+- bundle 形态已声明 `dsh.bundle.patch`（安装自动挂载）；patch 覆盖是**整行替换**不是深合并；
+  `config.id` 发布后不改。
 
 ---
 
@@ -350,10 +371,8 @@ ln -sfn "$DSH_PKG/node_modules/@deepseek-ai" node_modules/@deepseek-ai
 ln -sfn "$DSH_PKG/node_modules/@deepseek-ai/cordis" node_modules/cordis
 dsh plugin --profile web add /abs/path/to/starmemory-dsh
 
-# 3) 纯 cordis 还要在这个隔离 home 的 profile cordis.patch.yml 写 insert 行：
-#    - insert:
-#        - id: starmemory
-#          name: 'starmemory'      # name 必须加引号（YAML 保留字符）；空 patch 文件写 [] 不能留空文件
+# 3) bundle 形态自带组合 patch（cordis.patch.yml insert 自身），add 后自动进 bundles 列表，
+#    无需手写 insert 行；本地目录安装仅用于开发自测（SDK link 前置，见上）
 
 # 4) 端口：第一次挑（避开 3080），存进 $DSH_HOME/web-port，此后固定复用，被占不悄悄换
 nohup dsh web --port "$PORT" > /tmp/dsh-dev-starmemory.log 2>&1 &

@@ -12,7 +12,7 @@
 |------|-----|
 | SDK | `@deepseek-ai/dsh-tools`（由 profile 依赖闭包注入，包内依赖三字段留空） |
 | 插件 ID | `starmemory-dsh` |
-| 形态 | 纯 cordis 插件包（无 `dsh.bundle.patch`，无 client half） |
+| 形态 | bundle 插件（`dsh.bundle.patch` 自带组合 patch，装完自动挂载，无需手写 insert 行） |
 | 入口 | `index.mjs` 命名导出 `name` / `inject` / `apply` |
 | 数据根 | `~/.starmemory/`（可用环境变量 `STARMEMORY_DATA_DIR` 覆盖） |
 | SQLite | `node:sqlite`（Node 内置，无需外部依赖） |
@@ -20,18 +20,22 @@
 ### 安装
 
 ```sh
-dsh plugin --profile web add github:owofile/starmemory-dsh#path:/v1.0.0/plugins/starmemory-dsh
+dsh plugin --profile web add github:owofile/starmemory-dsh#v1.0.0
 ```
 
-然后在 profile 的 `cordis.patch.yml` 写一行 insert：
+> bundle 形态自带组合 patch，安装即自动挂载（不需要再改 profile patch）。
+> 不钉版本可写 `github:owofile/starmemory-dsh`（取默认分支 HEAD）；建议钉 tag。
+> 旧版本用对应 tag：`github:owofile/starmemory-dsh#v1.0.0`。
 
-```yaml
-- insert:
-    - id: starmemory-dsh
-      name: 'starmemory-dsh'
+### 版本结构
+
+仓库根 = 当前版本插件包（`package.json` 声明 `dsh.bundle`，市场索引按此发现 + git tag 映射版本）；`vX.Y.Z/` 目录为各版本发布快照（人类可读归档），不参与自动发现。
+
+```sh
+# 仓库根（发现入口 + 当前版本）
+├── package.json / cordis.patch.yml / index.mjs / lib/ ...
+└── v1.0.0/          # 发布快照
 ```
-
-> `name` 必须加引号（YAML 保留字符）。安装后重开新会话，Agent 即可调用 memory 工具集合。
 
 ## 架构
 
@@ -66,28 +70,29 @@ dsh plugin --profile web add github:owofile/starmemory-dsh#path:/v1.0.0/plugins/
 ## 文件结构
 
 ```
-starmemory-dsh/                      # 仓库根（与 OpenCode 版仓库架构一致）
-├── v1.0.0/                          # DSH 第一个版本（后续新版本都是版本号文件夹）
-│   ├── VERSION.txt                  # 版本号
-│   ├── INSTALL.md                   # 安装指南
-│   └── plugins/starmemory-dsh/      # npm 包根
-│       ├── package.json             # 依赖三字段留空（由 profile 闭包注入）
-│       ├── index.mjs                # Cordis entry（命名导出 name/inject/apply）
-│       ├── icon.svg                 # 插件图标（顶层 icon 字段）
-│       ├── locale/                  # en.json / zh.json（meta.title / meta.description）
-│       ├── manual.json              # 说明书数据（memory_manual 工具消费）
-│       ├── lib/
-│       │   ├── store.js             # 三份 JSON 数据文件读写（原子写）
-│       │   ├── archive.js           # node:sqlite 归档层
-│       │   ├── recall.js            # 召回引擎（四道闸门 + Token 预算 + 同义词扩展）
-│       │   └── tools/               # 每工具一个定义模块（纯数据+逻辑，不 import SDK）
-│       ├── scripts/                 # 本机开发门禁脚本（不进 files 白名单）
-│       └── test/                    # node --test 单测（不进 files 白名单）
+starmemory-dsh/                      # 仓库根 = npm 包根 = 市场发现入口
+├── package.json                     # name/version/main/exports/icon + dsh.bundle.patch（依赖三字段留空）
+├── cordis.patch.yml                 # bundle 组合 patch（insert 自身）
+├── index.mjs                        # Cordis entry（命名导出 name/inject/apply）
+├── icon.svg                         # 插件图标（顶层 icon 字段）
+├── locale/                          # en.json / zh.json（meta.title / meta.description）
+├── manual.json                      # 说明书数据（memory_manual 工具消费）
+├── lib/
+│   ├── store.js                     # 三份 JSON 数据文件读写（原子写）
+│   ├── archive.js                   # node:sqlite 归档层
+│   ├── recall.js                    # 召回引擎（四道闸门 + Token 预算 + 同义词扩展）
+│   └── tools/                       # 每工具一个定义模块（纯数据+逻辑，不 import SDK）
+├── scripts/                         # 本机开发门禁脚本（不进 files 白名单）
+├── test/                            # node --test 单测（不进 files 白名单）
+├── v1.0.0/                          # 发布快照（VERSION.txt + INSTALL.md + 插件包快照）
 ├── docs/                            # 设计文档
 ├── png/                             # 图片资源
 ├── bugs/                            # bug 记录（按版本）
 └── README.md
 ```
+
+> 版本发布方式：更新根 `package.json` 的 `version` → 快照到 `v<版本>/` → 打 `v<版本>` git tag。
+> git tag 与根包版本严格对应，市场索引按 tag 列版本；旧版本安装用 tag（`#vX.Y.Z`）。
 
 ## 数据文件
 
@@ -178,7 +183,7 @@ OpenCode 版由 context 钩子在每次请求前自动注入 `[LONG-TERM MEMORY]
 | 数据位置 | `~/.config/opencode/` | `~/.starmemory/`（不进插件目录） |
 | SQLite | sql.js（纯 JS） | node:sqlite（Node 内置） |
 | 工具契约 | `ctx.tool.transform` + input schema + `{content}` 返回 | `defineTool` + 强类型 schema + 单一 canonical 返回值 |
-| 安装 | 目录自动发现 | `dsh plugin add` git 源 + profile insert 行 |
+| 安装 | 目录自动发现 | bundle 一行安装（git 源 + tag，自动挂载组合层） |
 
 ## 兼容性
 

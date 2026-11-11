@@ -1,0 +1,5 @@
+# StarMemory DSH bundle：向组合挂 Node half（自动进入 profile bundles 列表，用户无需手写 insert）
+# 注意：name 必须加引号（YAML 保留字符）
+- insert:
+    - id: starmemory-dsh
+      name: 'starmemory-dsh'
