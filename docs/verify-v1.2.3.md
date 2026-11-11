@@ -1,14 +1,15 @@
-# v1.2.3 测试机验收步骤（照做即可）
+# v1.2.5 测试机验收步骤（照做即可）
 
-> 目标：验证 StarMemory DSH v1.2.3（tag `v1.2.3`）的**终末地工业风**设置面板 + 聊天区召回滑块 + 配置同步 + 维护日志。
-> 详细设计见 `docs/v1.2.0-settings-panel.md` §7（视觉）。全程 F12 Console 保持打开（client 报错只 console.warn，白屏红线）。
+> 目标：验证 StarMemory DSH v1.2.5（tag `v1.2.5`）的**终末地工业风**设置面板 + 聊天区召回滑块 + **i18n** + 配置同步 + 维护日志。
+> 覆盖 v1.2.3 工业风、v1.2.4 内联稳健性、v1.2.5 i18n（B3 专项）。
+> 详细设计见 `docs/v1.2.0-settings-panel.md` §7（视觉）、§9（已知取舍）。全程 F12 Console 保持打开（client 报错只 console.warn，白屏红线）。
 > 数据根 `~/.starmemory/`；配置 `~/.starmemory/plugin.log`。
 
 ## 0. 前置
 
 ```sh
 # 正规安装（自动注入 SDK），bundle 自动挂载
-dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.3
+dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.5
 # 启动 web（若未在跑），确认 127.0.0.1:3080 可访问
 ```
 
@@ -17,7 +18,7 @@ dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.3
 | # | 命令 | 期望 |
 |---|------|------|
 | A1 | `dsh --profile web --dump-config-schema \| grep -A3 '"id": "starmemory-dsh"'` | `status: "schema"`（非 absent） |
-| A2 | 调 `memory_ping` | `{status:"ok", version:"1.2.3"}` |
+| A2 | 调 `memory_ping` | `{status:"ok", version:"1.2.5"}` |
 | A3 | `type %USERPROFILE%\.starmemory\plugin.log` | 有 `apply start` / `archive opened` / `tools registered` / `recall config sync` 记录 |
 
 ## B. 浏览器侧（127.0.0.1:3080）
@@ -45,6 +46,17 @@ dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.3
 | B14 | 触发错误（可选：临时把 scope.set 改抛错） | 卡片显示黄块错误（黄底 `#FFFA00` + 深字），不是红字 |
 | B15 | `prefers-reduced-motion` 降级 | 系统开启「减少动态效果」后，流星划痕不播放、填充条无过渡 |
 
+### B3. i18n 专项（v1.2.5 新增）
+
+| # | 步骤 | 期望 |
+|---|------|------|
+| B16 | 打开插件详情页（中文界面） | 文案中文：召回控制 / 自动召回 / 召回档位（0 = 关闭…）/ 观察面板 / 占位句 / 保存脚注 / summary |
+| B17 | DSH 界面语言切英文（改设置或浏览器语言） | 卡片+滑块文案变英文（Recall Control / Auto Recall / Recall off / Observe / Recall）；**无刷新**；档位标签变英文（OFF / Minimal / Light / Medium / Strong / Heavy / Max） |
+| B18 | 切回中文 | 文案回中文；语言切换即时生效、无重挂载 |
+| B19 | 未显式选语言（浏览器语言回退） | 界面文案仍正常（跟随浏览器语言，不显裸键名如 `card.controlTitle`） |
+| B20 | Console 观察（切语言全程） | 无未捕获异常、无 React #185；`[starmemory] locale register failed` 不出现（字典注册成功） |
+| B21 | 负控（可选）：临时把 `makeTranslator` 的 `bind` 置空，重启 | 界面文案回退**中文**（不显键名）；改回 |
+
 ## C. 负控（白屏红线）
 
 | # | 步骤 | 期望 |
@@ -64,6 +76,7 @@ dsh plugin --profile web add github:owofile/starmemory-dsh#v1.2.3
 | `dsh.client.external` 形状 | client 不加载 / 白屏 | 对照 nekowhale `package.json` 的 `dsh.client` 字段调整 |
 | 明暗主题选择器 `body[data-ds-dark-theme]` 不符 | 卡片深浅不切（永远浅或永远深） | 查 DSH 实际主题属性名，改 CSS 选择器（见 06-ui-style token 真源） |
 | 卡片/summary 眉标类名 | 眉标不换行/无大写/颜色不对 | 确认 `.sm-ef-card .sm-eyebrow`（page）与 `.sm-ef-eyebrow`（summary，DSH token）两条规则都在 |
+| `inject` 加 `'locale'` 后 client 条目 pending | client 不加载（滑块/卡片都无），web 启动面板条目 pending | 安装版 locale 服务名不同（13-gotchas §7 注入不存在服务→pending）；回退：去掉 `'locale'` 走纯中文，或按安装版服务名改 |
 
 ## E. 结论记录
 
