@@ -1,7 +1,7 @@
 // check-package.mjs —— 门禁：打包配置关键字段（防 v1.2.6 实测 bug 回归）。
 // 1. dsh.bundle.patch 指向的文件必须在 files 白名单（否则 npm pack 缺 bundle patch，装不上）
 // 2. dsh.client 必须用 inject 声明消费的 client 包（external DSH 不认，client half 不加载）
-// 6. dsh.client.inject 必须含 @deepseek-ai/dsh-client-ui-plugin-manager（plugins.* 槽声明者，bug #8）
+// 6. dsh.client.inject 必须含 @deepseek-ai/dsh-client-ui-settings（settings.section 槽声明者）
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -83,17 +83,16 @@ if (!cinjMatch) {
   if (bad.length) errors.push(`client inject includes non-slots services [${bad.join(',')}]: client-side inject fails wholesale -> ctx only has fiber`)
 }
 
-// 6. dsh.client.inject 必须注入 plugins.item 槽的声明者 @deepseek-ai/dsh-client-ui-plugin-manager
-//    （bug #8：该包不在种子表，不注入则槽无消费者——注册成功但永不渲染，sm-ef DOM 计数 0；
+// 6. dsh.client.inject 必须注入 settings.section 槽的声明者 @deepseek-ai/dsh-client-ui-settings
+//    （v1.2.13：设置面板主槽；该包不在种子表，不注入则槽无消费者——注册成功但永不渲染；
 //     对照 dsh-bili-scroll 实测能显示即因注入了它消费的槽声明者包）。
 const dci = (client && client.inject) || []
-if (!dci.includes('@deepseek-ai/dsh-client-ui-plugin-manager')) {
-  errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-plugin-manager" (declares plugins.* slot; missing -> slot has no consumer -> card never renders)')
+if (!dci.includes('@deepseek-ai/dsh-client-ui-settings')) {
+  errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-settings" (declares settings.section; missing -> slot has no consumer -> panel never renders)')
 }
 
 // 7. dsh.client.inject 必须注入 @deepseek-ai/dsh-client-ui-renderer + @deepseek-ai/dsh-client-ui-layout
-//    （bug #8 收尾，v1.2.12）：nekowhale 实测能显示设置，其 inject 正是这两个 UI 基础设施包（设置槽的
-//     渲染器所在）；v1.2.11 只加 plugin-manager 仍不渲染，缺的就是设置 UI 渲染器。
+//    （UI 基础设施包：渲染器与布局所在；缺失则设置面板不渲染）。
 if (!dci.includes('@deepseek-ai/dsh-client-ui-renderer')) {
   errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-renderer" (settings UI renderer; missing -> card never renders)')
 }
@@ -101,10 +100,10 @@ if (!dci.includes('@deepseek-ai/dsh-client-ui-layout')) {
   errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-layout" (settings UI layout; missing -> card never renders)')
 }
 
-// 8. client 源码必须注册 plugins.bundle.config（v1.2.12：plugins.item 在 0.2.2-rc.1 无消费者——注册成功但
-//    组件不渲染，4 条 DEBUG 铁证；照 nekowhale 换 plugins.bundle.config 才是能显示的槽）。
-if (!clientSrc.includes('plugins.bundle.config')) {
-  errors.push('client/index.js must register "plugins.bundle.config" (plugins.item has no consumer on 0.2.2-rc.1; switch to plugins.bundle.config)')
+// 8. client 源码必须注册 settings.section（v1.2.13：主设置页独立分区，主人要的位置；注册 plugins.bundle.config
+//    详情页卡片已移除——那是设计错位）。
+if (!clientSrc.includes('settings.section')) {
+  errors.push('client/index.js must register "settings.section" (main settings panel; plugins.bundle.config detail card removed)')
 }
 
 if (errors.length) {

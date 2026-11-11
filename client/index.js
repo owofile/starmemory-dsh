@@ -13,19 +13,18 @@
 //  只 inject 确定能用的 slots；configForms 经 ctx.inject 回调拿，locale 单独回调最佳努力）
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
 //     - shell.overlay  聊天区召回滑块（fixed 右上角；unavailable/关闭 → 消失）
-//     - plugins.bundle.config   Plugins 页 starmemory 包详情配置（Switch + 0-6 档位按钮；key=包名）
+//     - settings.section  主设置页独立分区（召回 Switch + 0-6 档位按钮；id=包名；bili-scroll「刷B站」姿势）
 //   数据源：configForms.get('starmemory-dsh') scope —— 单一事实源（Config volatile 叶）。
 //   v1.2.7：两个 slot 均无条件注册（不 gate 在 configForms 可用性/whileServed）——
-//   首次无配置时 snapshot.status === 'unavailable'，由组件内降级（卡片 disabled、滑块 return null）；
-//   卡片是首次配置入口，被 gate 会整个面板不出现（测试机确诊）。
+//   首次无配置时 snapshot.status === 'unavailable'，由组件内降级（面板控件 disabled、滑块 return null）；
+//   面板是首次配置入口，被 gate 会整个面板不出现（测试机确诊）。
 //   v1.2.10：client 侧服务访问改回调式（bug #6：inject 多服务整批失败，ctx 只挂 fiber）。
-//   v1.2.11（bug #8 根因）：plugins.item 槽的声明者/消费者是 @deepseek-ai/dsh-client-ui-plugin-manager，
-//   不在种子表 → 必须经 package.json 的 dsh.client.inject 注入，否则槽无消费者、注册了也不渲染
-//   （测试机 0.2.2-rc.1：注册无报错但 sm-ef DOM 计数 0；对照 dsh-bili-scroll 实测能显示即因注入了槽声明者包）。
-//   v1.2.12（照抄 nekowhale 整套姿势，bug #8 收尾）：v1.2.11 只加 plugin-manager 仍不渲染（4 条 DEBUG：
-//   注册成功但 RecallCard 不调用）→ plugins.item 在 0.2.2-rc.1 无消费者是铁证。改槽 plugins.bundle.config
-//   （nekowhale 实测能显示的槽）+ 注入 @deepseek-ai/dsh-client-ui-renderer + @deepseek-ai/dsh-client-ui-layout
-//   （nekowhale 注入的设置 UI 基础设施，槽声明者/渲染器所在）+ 注册元数据带 inject:()=>face + 用 sctx.slots。
+//   v1.2.11（bug #8 根因）：插件配置槽的声明者/消费者是 @deepseek-ai/dsh-client-ui-plugin-manager，
+//   不在种子表 → 必须经 package.json 的 dsh.client.inject 注入，否则槽无消费者、注册了也不渲染。
+//   v1.2.12（照抄 nekowhale 整套姿势，bug #8 收尾）：详情页卡片在 0.2.2-rc.1 能显示（plugins.bundle.config），
+//   但那是设计错位——主人要的是主设置页独立分区，不是插件详情页小卡片。
+//   v1.2.13（本版）：移除插件详情页卡片（plugins.bundle.config + createCard），改注册 settings.section
+//   主设置页面板（createSection，Switch + 0-6 档位），数据仍走 configForms scope，与 shell.overlay 滑块同源。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -328,7 +327,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       // 定位/布局/配色/token 内联承载，style 被清时 UI 降级而非错位/消失；
       // 仅伪元素（星点/thumb/划痕动画）留 style 注入（伪元素无法内联）。
       return h('div', { className: 'sm-ef sm-ef-slider', style: {
-        position: 'fixed', top: 16, right: 16, zIndex: 9999,
+        position: 'fixed', top: 'var(--dsh-frame-overlay-top, 16px)', right: 16, zIndex: 9999,
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
         background: '#161616', border: '1px solid #353535', borderRadius: 0,
         clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)',
@@ -359,24 +358,14 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     }
   }
 
-  // ================= 设置卡片（plugins.item）：终末地工业风 =================
-  function createCard(bridge, commit, t) {
-    return function RecallCard(props) {
-      // 诊断（bug #8 定位，交接文档步骤 1）：组件真被调用 = 槽有消费者 = 渲染链通。
-      try { console.log('[starmemory] DEBUG RecallCard rendered, view:', props && props.view) } catch (e) {}
-      var view = props && props.view
+  // ================= 设置页面板（settings.section）：主设置页独立分区 =================
+  // 设计归属：召回开关 + 0-6 档位本就该在主设置页（像 bili-scroll「刷B站」），不是插件详情页卡片。
+  // 组件经闭包拿 bridge/commit（configForms scope 单一事实源）；settings.section 是 keyed 槽，id=包名。
+  function createSection(bridge, commit, t) {
+    return function StarMemorySection() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var err = React.useState('')
       var errValue = err[0], setErr = err[1]
-
-      if (view === 'summary') {
-        return h('span', { className: 'sm-ef sm-ef-eyebrow' },
-          h('span', { className: 'sm-en' }, '// RECALL'),
-          h('span', { className: 'sm-zh' }, state.enabled
-            ? t('card.summaryOn', { level: t('effort.' + state.effort) })
-            : t('card.summaryOff')),
-        )
-      }
 
       function run(ops) { setErr(commit(ops) || '') }
       function onToggle(next) { run([{ key: 'recallEnabled', value: !!next }]) }
@@ -401,7 +390,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         }))
 
       return h('div', { className: 'sm-ef sm-ef-card', style: {
-        display: 'flex', flexDirection: 'column', gap: 0, padding: '4px 0', maxWidth: 560,
+        display: 'flex', flexDirection: 'column', gap: 0, padding: '4px 0',
       } },
         h('div', { className: 'sm-section' },
           h('div', { className: 'sm-eyebrow' },
@@ -473,19 +462,12 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           var slots = (sctx && sctx.slots) ? sctx.slots : (ctx.slots || null)
           var scope = (sctx && sctx.configForms) ? sctx.configForms.get(NS) : null
           // v1.2.7：首次无配置时 namespace 未暴露 → scope 存在但 snapshot.status === 'unavailable'。
-          // 卡片是首次配置的入口，必须无条件注册（unavailable 由组件内降级：卡片 disabled、滑块 return null）。
+          // 面板是首次配置的入口，必须无条件注册（unavailable 由组件内降级：面板控件 disabled、滑块 return null）。
           if (!scope || typeof scope.getSnapshot !== 'function') {
-            console.warn('[starmemory] configForms scope unavailable; card/slider show degraded state')
+            console.warn('[starmemory] configForms scope unavailable; panel/slider show degraded state')
           }
-          // face = 惰性注入给组件的数据面（nekowhale 姿势）：宿主渲染时调 inject() 把 face 展开成组件 props
-          // （useScope/useDescribe/rehydrate/mutate/unset）。hooks.scope === scope，故 createScopeBridge 直接用。
-          var mirror = (sctx && sctx.configForms && typeof sctx.configForms.describe === 'function') ? sctx.configForms.describe() : null
-          var face = {
-            hooks: { scope: scope, describe: mirror },
-            mutate: function (ops, rev) { return scope && typeof scope.mutate === 'function' ? scope.mutate(ops, rev) : Promise.resolve(false) },
-            unset: function (k) { return scope && typeof scope.unset === 'function' ? scope.unset(k) : Promise.resolve(false) },
-            rehydrate: function (json) { return sctx && sctx.settingsSchema && typeof sctx.settingsSchema.rehydrate === 'function' ? sctx.settingsSchema.rehydrate(json) : json },
-          }
+          // settings.section / shell.overlay 组件都经闭包拿 bridge/commit（configForms scope 单一事实源），
+          // 无需 inject:()=>face（那是 plugins.bundle.config 的宿主展开姿势，本版已移除详情页卡片）。
           var bridge = createScopeBridge(scope)
           var commit = makeCommit(scope, t)
 
@@ -501,20 +483,19 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             console.warn('[starmemory] slider disabled:', e)
           }
 
-          // 卡片无条件注册（不 gate 在 whileServed：首次配置时 namespace 未 served，gate 会挡掉注册）。
-          // v1.2.12：槽 plugins.item → plugins.bundle.config（nekowhale 实测能显示的槽；plugins.item 在
-          // 0.2.2-rc.1 无消费者——v1.2.11 注册成功但 RecallCard 不渲染，铁证）。bundle.config 用 key:PKG +
-          // inject:()=>face（07 文档 line 123：把 id/order/label 换成 key: PKG_NAME 即可，其余不变）。
+          // 主设置页独立分区（settings.section）：召回 Switch + 0-6 档位（bili-scroll「刷B站」姿势）。
+          // settings.section 是 keyed 槽，唯一键用 id=包名；label=左侧导航项；order=排序。
+          // 无条件注册（首次无配置时 scope unavailable，由组件内降级：Switch/按钮 disabled）。
           try {
-            slots.inject('plugins.bundle.config', function () {
+            slots.inject('settings.section', function () {
               return slots.register(
-                { name: 'plugins.bundle.config', key: PKG, inject: function () { return face } },
-                createCard(bridge, commit, t),
+                { name: 'settings.section', id: PKG, order: 50, label: 'StarMemory' },
+                createSection(bridge, commit, t),
               )
             })
-            try { console.log('[starmemory] DEBUG registered slot plugins.bundle.config') } catch (e) {}
+            try { console.log('[starmemory] DEBUG registered slot settings.section') } catch (e) {}
           } catch (e) {
-            console.warn('[starmemory] settings card disabled:', e)
+            console.warn('[starmemory] settings section disabled:', e)
           }
         })
       } else {

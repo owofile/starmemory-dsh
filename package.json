@@ -1,8 +1,8 @@
 {
   "name": "starmemory-dsh",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "type": "module",
-  "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回；v1.2.0 起含 Plugins 页设置卡片与聊天区召回滑块（client half）",
+  "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回；v1.2.13 起含主设置页独立面板与聊天区召回滑块（client half）",
   "main": "./index.mjs",
   "exports": {
     ".": "./index.mjs",
@@ -28,9 +28,9 @@
       "platform": "web",
       "inject": [
         "@deepseek-ai/dsh-client-ui-primitives",
-        "@deepseek-ai/dsh-client-ui-plugin-manager",
         "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-layout"
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-settings"
       ]
     }
   },
