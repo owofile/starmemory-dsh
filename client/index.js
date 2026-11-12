@@ -566,7 +566,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
               h('span', { className: 'sm-recall-en' }, '// RECALL'),
             ),
             h('div', { className: 'sm-recall-num' },
-              h('span', { className: 'sm-n' }, 'No.' + pad(displayValue)),
+              h('span', { className: 'sm-n' }, t('effort.' + displayValue)),
               h('span', { className: 'sm-c' }, '/ 06'),
             ),
             h('div', {
