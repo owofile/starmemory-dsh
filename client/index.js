@@ -43,6 +43,9 @@
 //   自动算位 + 视口不够自动翻转）：trigger ref=triggerRef、pop ref=menuRef + style=menuPos（未测量时
 //   MEASURE_STYLE 隐藏首帧防跳动），side:'top' align:'end' gap:8 margin:12 layoutKey。删 CSS anchor-name /
 //   position-anchor 那套。
+//   v1.2.18（本版）：图层修复（StarMemory-弹窗布局与动效结构.md §三）——星点/流星 z-index:-1 → 0
+//   （原被 MenuSurface 不透明深空背景 .material 盖住，动效在跑但看不见）；内容元素（head/num/track/err）
+//   加 position:relative; z-index:1（确保在星点/流星之上）。动画本就在，图层顺序对即可见。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -191,8 +194,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '--dsw-alias-label-primary:#EDEDED;--dsw-alias-label-secondary:#C6CDE0;',
     '--dsw-alias-label-caption:#8A93A6;--dsw-alias-label-dimmed:#6B7280;',
     '--dsw-elevation-stroke-color:rgba(120,150,255,.28);box-shadow:0 10px 34px rgba(0,0,0,.55);}',
-    // 静态星点（多层 radial-gradient 星 + 微闪脉动）
-    '.sm-recall-pop .sm-recall-stars{position:absolute;inset:0;z-index:-1;pointer-events:none;',
+    // 静态星点（多层 radial-gradient 星 + 微闪脉动；z-index:0 = 在深空背景之上、内容之下，可见）
+    '.sm-recall-pop .sm-recall-stars{position:absolute;inset:0;z-index:0;pointer-events:none;',
     'background-image:radial-gradient(1.6px 1.6px at 18% 26%,rgba(255,255,255,.95),transparent),',
     'radial-gradient(1px 1px at 62% 16%,rgba(190,215,255,.8),transparent),',
     'radial-gradient(1.4px 1.4px at 84% 52%,rgba(255,255,255,.7),transparent),',
@@ -202,8 +205,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     'radial-gradient(1px 1px at 48% 42%,rgba(255,255,255,.45),transparent);',
     'animation:sm-twinkle 4.5s ease-in-out infinite alternate;}',
     '@keyframes sm-twinkle{0%{opacity:.55}50%{opacity:1}100%{opacity:.7}}',
-    // 流星：斜向尾迹（头白/尾透明），错峰划过（照 effect-labs shooting-star）
-    '.sm-recall-pop .sm-recall-meteor{position:absolute;z-index:-1;pointer-events:none;',
+    // 流星：斜向尾迹（头白/尾透明），错峰划过（照 effect-labs shooting-star；z-index:0 = 背景之上、内容之下，可见）
+    '.sm-recall-pop .sm-recall-meteor{position:absolute;z-index:0;pointer-events:none;',
     'width:64px;height:2px;border-radius:2px;',
     'background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(154,208,255,.5),transparent);',
     'animation:sm-shoot 6s linear infinite;opacity:0;}',
@@ -222,16 +225,16 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     'border-radius:50%;background:#0a0d1a;transition:left .18s ease;box-shadow:0 0 4px rgba(255,255,255,.4);}',
     '.sm-recall-pop .sm-recall-toggle.is-on .sm-recall-knob{background:var(--sm-rainbow);}',
     '.sm-recall-pop .sm-recall-toggle.is-on .sm-recall-knob::after{left:15px;background:#0a0d1a;}',
-    // 头部眉标 / 数字
-    '.sm-recall-pop .sm-recall-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}',
+    // 头部眉标 / 数字（z-index:1 = 在星点/流星 z-index:0 之上）
+    '.sm-recall-pop .sm-recall-head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;}',
     '.sm-recall-pop .sm-recall-en{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;',
     'color:var(--dsw-alias-label-caption,#8A93A6);}',
-    '.sm-recall-pop .sm-recall-num{display:flex;align-items:baseline;gap:4px;}',
+    '.sm-recall-pop .sm-recall-num{position:relative;z-index:1;display:flex;align-items:baseline;gap:4px;}',
     '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#EDEDED);}',
     '.sm-recall-pop .sm-recall-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;',
     'color:var(--dsw-alias-label-caption,#8A93A6);}',
     // 轨道：深空分格 + 彩虹填充（星云点缀）+ 彩虹发光滑头（保留）
-    '.sm-recall-pop .sm-recall-track{position:relative;width:220px;height:12px;}',
+    '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:220px;height:12px;}',
     '.sm-recall-pop .sm-recall-fill{position:absolute;left:0;top:3px;height:6px;border-radius:0;',
     'width:var(--sm-fill,0%);background:var(--sm-rainbow);opacity:.9;',
     'transition:width .22s cubic-bezier(.7,0,.2,1);box-shadow:0 0 6px rgba(154,208,255,.35);}',
@@ -248,7 +251,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:11px;height:11px;border-radius:0;',
     'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.8);',
     'box-shadow:0 0 8px rgba(54,197,240,.9);}',
-    '.sm-recall-pop .sm-recall-err{font-size:11px;font-weight:600;color:#FFFA00;}',
+    '.sm-recall-pop .sm-recall-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
     '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
     '.sm-recall-pop .sm-recall-fill{transition:none;}}',

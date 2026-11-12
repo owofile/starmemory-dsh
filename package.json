@@ -1,8 +1,8 @@
 {
   "name": "starmemory-dsh",
-  "version": "1.2.17",
+  "version": "1.2.18",
   "type": "module",
-  "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回；v1.2.17 起含主设置页独立面板与聊天输入框右下角召回触发器（composer 子槽 conversation.input.right，星空流星雨主题滑块，弹窗定位用 useAnchoredPosition）",
+  "description": "StarMemory 分层记忆 DSH 版：长期记忆 + 碎片记忆 + SQLite 归档，Agent 主动调用工具召回；v1.2.18 起含主设置页独立面板与聊天输入框右下角召回触发器（composer 子槽 conversation.input.right，星空流星雨主题滑块，useAnchoredPosition 定位，星点/流星图层已修复可见）",
   "main": "./index.mjs",
   "exports": {
     ".": "./index.mjs",
