@@ -46,6 +46,11 @@
 //   v1.2.18（本版）：图层修复（StarMemory-弹窗布局与动效结构.md §三）——星点/流星 z-index:-1 → 0
 //   （原被 MenuSurface 不透明深空背景 .material 盖住，动效在跑但看不见）；内容元素（head/num/track/err）
 //   加 position:relative; z-index:1（确保在星点/流星之上）。动画本就在，图层顺序对即可见。
+//   v1.2.19（本版）：滑块卡顿修复（拖动掉帧）——① 滑块受控 + 每 250ms 停顿走完整 commit 往返 +
+//   重渲染时星空动画/大 box-shadow 重新合成。修法：拖动用本地 state 即时回显（value=displayValue，
+//   localRef 存拖动值，stop 250ms 才 commit，commit 后回落 store）；② 拖动加 .is-sliding class 暂停
+//   星点/流星动画（animation-play-state:paused，省合成）；③ 拖动减淡填充 box-shadow。close 清 localRef
+//   防残留档位。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -252,6 +257,10 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.8);',
     'box-shadow:0 0 8px rgba(54,197,240,.9);}',
     '.sm-recall-pop .sm-recall-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
+    // ②③ 拖动中：暂停星空/流星动画（省合成）+ 减淡填充发光（省重画），拖动更顺
+    '.sm-recall-pop.is-sliding .sm-recall-stars,',
+    '.sm-recall-pop.is-sliding .sm-recall-meteor{animation-play-state:paused;}',
+    '.sm-recall-pop.is-sliding .sm-recall-fill{box-shadow:none;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
     '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
     '.sm-recall-pop .sm-recall-fill{transition:none;}}',
@@ -368,15 +377,21 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var rootRef = React.useRef(null)
       var menuRef = React.useRef(null)
       var triggerRef = React.useRef(null)
+      // ① 拖动本地回显：localRef 存拖动中的值（即时跟手），localState 触发重渲染
+      var localRef = React.useRef(null)
+      var localState = React.useState(null)
       var open = openState[0], setOpen = openState[1]
       var phase = phaseState[0], setPhase = phaseState[1]
       var errValue = errState[0], setErr = errState[1]
+      var local = localState[0], setLocal = localState[1]
 
       React.useEffect(function () { ensureStyle('sm-ef-style', EF_CSS) }, [])
 
       function close() {
         setPhase('dismiss')
         if (timerRef.current) clearTimeout(timerRef.current)
+        // 丢弃拖动中未提交的本地值（回落 store），避免重开时误显示残留档位
+        localRef.current = null
         timerRef.current = setTimeout(function () { setOpen(false); setPhase(null) }, 80)
       }
       // 外部点击关闭（照 ModelSelect：portaled 卡片在 trigger 子树外，需查两者）
@@ -399,13 +414,19 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
       function onSlide(e) {
         var v = Number(e.target.value) || 0
+        // ① 本地即时回显：拖动中 value 用本地值（不等 store 往返），跟手不卡
+        localRef.current = v
+        setLocal(v)
         if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(function () { onLevel(v) }, 250)
+        // 停止 250ms 后才 commit（完整往返），并清除本地回显（回落 store 值）
+        timerRef.current = setTimeout(function () { onLevel(v); localRef.current = null }, 250)
       }
 
       var disabled = state.status !== 'ready' || !state.writable
       var shown = state.enabled ? state.effort : 0
-      var pct = (shown / 6) * 100
+      // ① 拖动中显示本地值（即时跟手），否则回落 store 值；localRef.current 可能为 0，用 !== null 判
+      var displayValue = localRef.current !== null ? localRef.current : shown
+      var pct = (displayValue / 6) * 100
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
       // 定位：弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳），改用 DSH 自带 useAnchoredPosition
       // （ModelSelect 同款：自动算位 + 视口不够自动翻转）。side:'top' = 弹窗在触发器上方（输入框在窗口底部）。
@@ -422,7 +443,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       if (open) {
         pop = ReactDOM.createPortal(
           h(MenuSurface, {
-            ref: menuRef, className: 'sm-ef sm-recall-pop',
+            ref: menuRef,
+            // ② 拖动中加 is-sliding：暂停星空/流星动画（省合成，拖动更顺）
+            className: 'sm-ef sm-recall-pop' + (localRef.current !== null ? ' is-sliding' : ''),
             // style = useAnchoredPosition 算出的绝对定位（position:fixed + top/left 等）；
             // 未测量（menuPos 为 null）时用 MEASURE_STYLE 隐藏首帧防跳动。
             // --sm-rainbow 提至 pop 根：toggle 圆点与轨道填充共用（星云点缀色）。
@@ -447,14 +470,14 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
               ),
             ),
             h('div', { className: 'sm-recall-num' },
-              h('span', { className: 'sm-n' }, 'No.' + pad(shown)),
+              h('span', { className: 'sm-n' }, 'No.' + pad(displayValue)),
               h('span', { className: 'sm-c' }, '/ 06'),
             ),
             h('div', { className: 'sm-recall-track', style: { '--sm-fill': pct + '%' } },
               h('div', { className: 'sm-recall-fill' }),
               h('input', {
                 className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
-                value: shown, disabled: disabled, onChange: onSlide,
+                value: displayValue, disabled: disabled, onChange: onSlide,
               }),
             ),
             errValue ? h('span', { className: 'sm-recall-err' }, errValue) : null,
