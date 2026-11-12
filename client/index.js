@@ -236,14 +236,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '@keyframes sm-shoot{0%{transform:translate(0,0) rotate(-45deg);opacity:0;}',
     '4%{opacity:.9;}28%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}',
     '100%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}}',
-    // 头部眉标 / 数字（z-index:1 = 在星点/流星 z-index:0 之上）；弹窗不再有召回开关（开关在设置面板）
-    '.sm-recall-pop .sm-recall-head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;}',
-    '.sm-recall-pop .sm-recall-en{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;',
-    'color:var(--dsw-alias-label-caption,#8A93A6);}',
-    '.sm-recall-pop .sm-recall-num{position:relative;z-index:1;display:flex;align-items:baseline;gap:4px;}',
-    '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#EDEDED);}',
-    '.sm-recall-pop .sm-recall-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;',
-    'color:var(--dsw-alias-label-caption,#8A93A6);}',
+    // 眉标 //RECALL 与档位编号已删（档位说明文字在圆形滑块头上，配色由 sm-lv-* 档位渐变类驱动）
     // 轨道：1:1 复刻 Codex reasoning slider（rail/fill/dot/knob/particles/burst 结构 + 尺寸），配色改星空。
     // 轨道底：高 26px 圆角 16px（照 Codex .rail），星空下用浅白轨道
     '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:248px;height:26px;border-radius:16px;',
@@ -271,12 +264,38 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     'width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(255,255,255,.32);pointer-events:none;',
     'transition:opacity .18s ease .22s,transform .14s ease;}',
     '.sm-recall-pop .sm-recall-dot.passed{background:rgba(255,255,255,.75);}',
-    // 手柄：30px 圆（照 Codex .knob），星空配色=深空底 + 青蓝紫光晕 + 细边框
+    // 手柄：30px 圆（照 Codex .knob），内显档位说明文字（居中、随拖动移动、颜色随档位变）。
+    // 档位配色 = 月球（低档冷色）→ 日蚀（中档紫暗 + 日冕环）→ 太阳（高档暖色发光）渐变，sm-lv-0~6 驱动。
     '.sm-recall-pop .sm-recall-thumb{position:absolute;z-index:2;left:calc((100% - 30px)*var(--sm-pos,0));top:-2px;',
-    'width:30px;height:30px;border-radius:50%;pointer-events:none;background:#0a0d1a;',
-    'border:.5px solid rgba(255,255,255,.35);',
-    'box-shadow:0 0 12px rgba(156,200,255,.85),0 0 5px rgba(156,76,227,.55);',
-    'transition:left .18s cubic-bezier(.2,.8,.2,1);}',
+    'width:30px;height:30px;border-radius:50%;pointer-events:none;box-sizing:border-box;',
+    'display:flex;align-items:center;justify-content:center;',
+    'transition:left .18s cubic-bezier(.2,.8,.2,1),background .18s ease,color .18s ease,box-shadow .18s ease;}',
+    '.sm-recall-pop .sm-recall-thumb-label{display:block;max-width:100%;overflow:hidden;white-space:nowrap;',
+    'text-overflow:ellipsis;font-size:8px;font-weight:700;line-height:1;text-align:center;letter-spacing:.02em;',
+    'text-shadow:0 1px 2px rgba(0,0,0,.35);}',
+    // 档位 0（关闭/OFF）：冷月——灰蓝月面，暗冷光
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-0{background:radial-gradient(circle at 32% 30%,#aab6c8 0%,#78839a 45%,#414b60 100%);',
+    'color:#141a26;border:.5px solid rgba(255,255,255,.35);box-shadow:0 0 6px rgba(160,180,220,.4);}',
+    // 档位 1（极轻/Minimal）：月面微蓝光
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-1{background:radial-gradient(circle at 32% 30%,#b9c9e8 0%,#8a9cc4 45%,#4d5c82 100%);',
+    'color:#141a2a;border:.5px solid rgba(200,215,255,.4);box-shadow:0 0 7px rgba(150,180,240,.5);}',
+    // 档位 2（轻/Light）：月球偏蓝，开始暗化（日蚀前奏）
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-2{background:radial-gradient(circle at 32% 30%,#9db8e8 0%,#6a80c4 45%,#3a3f6a 100%);',
+    'color:#eef2ff;border:.5px solid rgba(190,205,255,.45);box-shadow:0 0 8px rgba(140,160,240,.55);}',
+    // 档位 3（中/Medium）：日蚀——紫暗核心 + 日冕环
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-3{background:radial-gradient(circle at 50% 50%,#241640 0%,#46286a 55%,#7a4aa2 100%);',
+    'color:#f2e8ff;border:1px solid rgba(200,160,255,.55);',
+    'box-shadow:0 0 10px rgba(170,110,240,.6),inset 0 0 5px rgba(255,255,255,.15);}',
+    // 档位 4（较强/Strong）：日蚀→太阳过渡，紫转橙
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-4{background:radial-gradient(circle at 50% 50%,#5a2a52 0%,#9a4a42 55%,#d8804a 100%);',
+    'color:#fff0e2;border:1px solid rgba(255,200,160,.5);box-shadow:0 0 11px rgba(230,140,90,.6);}',
+    // 档位 5（强/Heavy）：太阳——橙金，发光
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-5{background:radial-gradient(circle at 50% 50%,#ffd88a 0%,#ff9a4a 55%,#d05a2a 100%);',
+    'color:#33160a;border:1px solid rgba(255,220,170,.6);box-shadow:0 0 14px rgba(255,170,80,.75);}',
+    // 档位 6（最强/Max）：太阳全亮发光——暖金核心 + 强光晕
+    '.sm-recall-pop .sm-recall-thumb.sm-lv-6{background:radial-gradient(circle at 50% 50%,#fff3c4 0%,#ffc24a 42%,#ff8a2a 75%,#e05620 100%);',
+    'color:#2a1000;border:1px solid rgba(255,235,190,.7);',
+    'box-shadow:0 0 20px rgba(255,175,60,.95),0 0 8px rgba(255,120,40,.85);}',
     // 粒子 canvas（照 Codex .sparks）：248×26，铺在填充上
     '.sm-recall-pop .sm-recall-sparks{display:block;width:248px;height:26px;}',
     // 爆开 canvas（照 Codex .burst）：52×52，位于 knob 右上
@@ -294,6 +313,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     // ② 拖动中：只禁填充宽度过渡（更跟手），**不暂停流星/星星/扫光**（用户要求背景动效滑动时继续）；
     // 粒子流动在 JS 里已暂停（sliding）保性能。
     '.sm-recall-pop.is-sliding .sm-recall-fill{transition:none;}',
+    '.sm-recall-pop.is-sliding .sm-recall-thumb{transition:none;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
     '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
     '.sm-recall-pop .sm-recall-fill{transition:none;}',
@@ -533,7 +553,6 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           setLocal(null)
         }
       }, [shown])
-      var pad = function (n) { return (n < 10 ? '0' : '') + n }
       // 定位：弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳），改用 DSH 自带 useAnchoredPosition
       // （ModelSelect 同款：自动算位 + 视口不够自动翻转）。side:'top' = 弹窗在触发器上方（输入框在窗口底部）。
       // layoutKey：layout 变化时触发重算（composer 高度/视口缩放）。
@@ -562,13 +581,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             h('div', { className: 'sm-recall-stars' }),
             h('div', { className: 'sm-recall-meteor m1' }),
             h('div', { className: 'sm-recall-meteor m2' }),
-            h('div', { className: 'sm-recall-head' },
-              h('span', { className: 'sm-recall-en' }, '// RECALL'),
-            ),
-            h('div', { className: 'sm-recall-num' },
-              h('span', { className: 'sm-n' }, t('effort.' + displayValue)),
-              h('span', { className: 'sm-c' }, '/ 06'),
-            ),
+            // 眉标 //RECALL 与档位编号已删：档位说明文字显示在圆形滑块头上（随拖动移动、颜色随档位变，
+            // 圆形本体「月球→日蚀→太阳」渐变由 sm-lv-0~6 档位 class 驱动，见 CSS）。
             h('div', {
               className: 'sm-recall-track' + (displayValue === 6 ? ' maxed' : ''),
               style: { '--sm-pos': pos },
@@ -585,7 +599,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
                   style: { '--sm-tick': i / 6 },
                 })
               }),
-              h('div', { className: 'sm-recall-thumb' }),
+              h('div', { className: 'sm-recall-thumb sm-lv-' + displayValue },
+                h('span', { className: 'sm-recall-thumb-label' }, t('effort.' + displayValue)),
+              ),
               h('canvas', { ref: burstRef, className: 'sm-recall-burst', width: 144, height: 144 }),
               h('input', {
                 className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
@@ -599,7 +615,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       }
 
       // 召回是总功能：recallEnabled=false（设置面板关闭）时隐藏聊天区召回按钮（弹窗也随之不渲染）；
-      // 开关只在设置面板，聊天区弹窗只留眉标 + 档位数字 + 滑块。
+      // 开关只在设置面板，聊天区弹窗只留滑块（档位说明文字在圆形滑块头上）。
       if (!state.enabled) return null
       return h('div', { ref: rootRef, className: 'sm-ef sm-recall' },
         h('button', {
