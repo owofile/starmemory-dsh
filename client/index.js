@@ -94,6 +94,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       'card.controlTitle': '召回控制',
       'card.autoRecall': '自动召回',
       'card.effortNote': '召回档位（0 = 关闭，档位越高注入越强）',
+      'card.sliderWidth': '雪屋滑块长度',
       'card.observeTitle': '观察面板',
       'card.observePlaceholder': '统计、归档状态与诊断摘要将在这里以只读形式展示。',
       'card.saveNote': '保存即生效；面板配置后档位以此为准',
@@ -108,6 +109,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       'card.controlTitle': 'Recall Control',
       'card.autoRecall': 'Auto Recall',
       'card.effortNote': 'Recall level (0 = off, higher = stronger)',
+      'card.sliderWidth': 'Cabin slider length',
       'card.observeTitle': 'Observe',
       'card.observePlaceholder': 'Stats, archive status and diagnosis summary will show here read-only.',
       'card.saveNote': 'Takes effect immediately; panel config is authoritative once set',
@@ -207,7 +209,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-caret.is-open{transform:rotate(180deg);}',
     // ---- 弹出菜单（定位由 useAnchoredPosition style 驱动：position:fixed + top/left 等；MenuSurface 材质背景被覆盖为深空渐变，星点/流星为内容层）----
     '.sm-recall-pop{position:fixed;margin:0;z-index:1100;',
-    'display:flex;flex-direction:column;gap:10px;width:272px;height:fit-content;',
+    'display:flex;flex-direction:column;gap:10px;width:fit-content;min-width:272px;height:fit-content;',
     'max-width:calc(100vw - 24px);padding:12px 14px;box-sizing:border-box;',
     'overflow:hidden;border:0;',
     // 深空主题：覆盖 MenuSurface 材质变量 + 浅色文字 token（星云/流星雨配色）
@@ -237,88 +239,20 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '4%{opacity:.9;}28%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}',
     '100%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}}',
     // 眉标 //RECALL 与档位编号已删（档位说明文字在圆形滑块头上，配色由 sm-lv-* 档位渐变类驱动）
-    // 轨道：1:1 复刻 Codex reasoning slider（rail/fill/dot/knob/particles/burst 结构 + 尺寸），配色改星空。
-    // 轨道底：高 26px 圆角 16px（照 Codex .rail），星空下用浅白轨道
-    '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:248px;height:26px;border-radius:16px;',
-    'background:rgba(255,255,255,.10);}',
-    // 填充：左圆角 16px 右直角，宽 calc((100%-30px)*pos+15px)（照 Codex .fill，30=knob 宽），青蓝→紫星空尾迹
-    '.sm-recall-pop .sm-recall-fill{position:absolute;inset:0 auto 0 0;',
-    'width:calc((100% - 30px)*var(--sm-pos,0) + 15px);border-radius:16px 0 0 16px;overflow:hidden;pointer-events:none;',
-    'background:linear-gradient(90deg,#6EB6FF,#9C4CE3);',
-    'transition:width .18s cubic-bezier(.2,.8,.2,1);}',
-    // 最高档（6）：尾迹紫色发光 glow（照 Codex .fill:after，紫色渐变 + blur + mask）+ 扫光 shimmer
-    '.sm-recall-pop .sm-recall-fill::after{content:"";position:absolute;inset:-12px -24px;border-radius:28px;',
-    'background:linear-gradient(95deg,#3065de 0%,#7757ee 32%,#b052f1 53%,#7d42e7 76%,#5631d0 100%);',
-    'filter:blur(5px);opacity:0;',
-    'mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);',
-    '-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);',
-    'transform:translateX(42%);transition:transform 1.8s cubic-bezier(.16,1,.3,1),opacity 1.25s ease;}',
-    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::after{opacity:.9;transform:translateX(0);}',
-    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::before{content:"";position:absolute;inset:-10px -40px;',
-    'background:linear-gradient(100deg,transparent 18%,rgba(255,255,255,.03) 35%,rgba(255,255,255,.19) 48%,',
-    'rgba(255,255,255,.04) 66%,transparent 84%);',
-    'animation:sm-meteor-shimmer 4.5s ease-in-out infinite alternate;z-index:1;}',
-    '@keyframes sm-meteor-shimmer{from{transform:translateX(-45%)}to{transform:translateX(45%)}}',
-    // 档位刻度点（0-6 共 7 个；passed=已点亮）：4px 圆，top 11px，left calc((100%-30px)*tick+15px)（照 Codex .dot）
-    '.sm-recall-pop .sm-recall-dot{position:absolute;top:11px;left:calc((100% - 30px)*var(--sm-tick,0) + 15px);',
-    'width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(255,255,255,.32);pointer-events:none;',
-    'transition:opacity .18s ease .22s,transform .14s ease;}',
-    '.sm-recall-pop .sm-recall-dot.passed{background:rgba(255,255,255,.75);}',
-    // 手柄：30px 圆（照 Codex .knob），内显档位说明文字（居中、随拖动移动、颜色随档位变）。
-    // 档位配色 = 月球（低档冷色）→ 日蚀（中档紫暗 + 日冕环）→ 太阳（高档暖色发光）渐变，sm-lv-0~6 驱动。
-    '.sm-recall-pop .sm-recall-thumb{position:absolute;z-index:2;left:calc((100% - 30px)*var(--sm-pos,0));top:-2px;',
-    'width:30px;height:30px;border-radius:50%;pointer-events:none;box-sizing:border-box;',
-    'display:flex;align-items:center;justify-content:center;',
-    'transition:left .18s cubic-bezier(.2,.8,.2,1),background .18s ease,color .18s ease,box-shadow .18s ease;}',
-    '.sm-recall-pop .sm-recall-thumb-label{display:block;max-width:100%;overflow:hidden;white-space:nowrap;',
-    'text-overflow:ellipsis;font-size:8px;font-weight:700;line-height:1;text-align:center;letter-spacing:.02em;',
-    'text-shadow:0 1px 2px rgba(0,0,0,.35);}',
-    // 档位 0（关闭/OFF）：冷月——灰蓝月面，暗冷光
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-0{background:radial-gradient(circle at 32% 30%,#aab6c8 0%,#78839a 45%,#414b60 100%);',
-    'color:#141a26;border:.5px solid rgba(255,255,255,.35);box-shadow:0 0 6px rgba(160,180,220,.4);}',
-    // 档位 1（极轻/Minimal）：月面微蓝光
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-1{background:radial-gradient(circle at 32% 30%,#b9c9e8 0%,#8a9cc4 45%,#4d5c82 100%);',
-    'color:#141a2a;border:.5px solid rgba(200,215,255,.4);box-shadow:0 0 7px rgba(150,180,240,.5);}',
-    // 档位 2（轻/Light）：月球偏蓝，开始暗化（日蚀前奏）
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-2{background:radial-gradient(circle at 32% 30%,#9db8e8 0%,#6a80c4 45%,#3a3f6a 100%);',
-    'color:#eef2ff;border:.5px solid rgba(190,205,255,.45);box-shadow:0 0 8px rgba(140,160,240,.55);}',
-    // 档位 3（中/Medium）：日蚀——紫暗核心 + 日冕环
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-3{background:radial-gradient(circle at 50% 50%,#241640 0%,#46286a 55%,#7a4aa2 100%);',
-    'color:#f2e8ff;border:1px solid rgba(200,160,255,.55);',
-    'box-shadow:0 0 10px rgba(170,110,240,.6),inset 0 0 5px rgba(255,255,255,.15);}',
-    // 档位 4（较强/Strong）：日蚀→太阳过渡，紫转橙
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-4{background:radial-gradient(circle at 50% 50%,#5a2a52 0%,#9a4a42 55%,#d8804a 100%);',
-    'color:#fff0e2;border:1px solid rgba(255,200,160,.5);box-shadow:0 0 11px rgba(230,140,90,.6);}',
-    // 档位 5（强/Heavy）：太阳——橙金，发光
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-5{background:radial-gradient(circle at 50% 50%,#ffd88a 0%,#ff9a4a 55%,#d05a2a 100%);',
-    'color:#33160a;border:1px solid rgba(255,220,170,.6);box-shadow:0 0 14px rgba(255,170,80,.75);}',
-    // 档位 6（最强/Max）：太阳全亮发光——暖金核心 + 强光晕
-    '.sm-recall-pop .sm-recall-thumb.sm-lv-6{background:radial-gradient(circle at 50% 50%,#fff3c4 0%,#ffc24a 42%,#ff8a2a 75%,#e05620 100%);',
-    'color:#2a1000;border:1px solid rgba(255,235,190,.7);',
-    'box-shadow:0 0 20px rgba(255,175,60,.95),0 0 8px rgba(255,120,40,.85);}',
-    // 粒子 canvas（照 Codex .sparks）：248×26，铺在填充上
-    '.sm-recall-pop .sm-recall-sparks{display:block;width:248px;height:26px;}',
-    // 爆开 canvas（照 Codex .burst）：52×52，位于 knob 右上
-    '.sm-recall-pop .sm-recall-burst{position:absolute;left:calc(100% - 41px);top:-13px;width:52px;height:52px;',
-    'pointer-events:none;z-index:4;}',
-    // 交互层：透明 range 覆盖（保留拖动/键盘/无障碍），视觉在下
-    '.sm-recall-pop .sm-recall-range{-webkit-appearance:none;appearance:none;position:absolute;inset:0;z-index:3;',
-    'width:248px;height:26px;margin:0;background:transparent;outline:none;cursor:pointer;opacity:0;}',
-    '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:26px;background:transparent;}',
-    '.sm-recall-pop .sm-recall-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
-    'width:26px;height:26px;background:transparent;border:0;}',
-    '.sm-recall-pop .sm-recall-range::-moz-range-track{height:26px;background:transparent;}',
-    '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:26px;height:26px;background:transparent;border:0;}',
+    // 雪屋滑块本体（雪夜山小屋 @Lattice_Node MIT）：档位说明文字在雪屋上方，雪屋药丸可拖动调档。
+    // 宽度由设置项驱动（--sm-cabin-w），高度 = 宽度/1.85（原作药丸比例）；文字颜色随档位 sm-lv-0~6。
+    '.sm-recall-pop .sm-recall-effort{position:relative;z-index:1;text-align:center;font-size:15px;',
+    'font-weight:700;letter-spacing:.06em;line-height:1;transition:color .18s ease,text-shadow .18s ease;}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-0{color:#8a97ad;text-shadow:0 0 8px rgba(150,170,210,.35);}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-1{color:#9fb2d8;text-shadow:0 0 8px rgba(160,185,235,.4);}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-2{color:#8ea5e0;text-shadow:0 0 9px rgba(150,170,240,.45);}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-3{color:#b48ae6;text-shadow:0 0 10px rgba(170,120,240,.55);}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-4{color:#e0a06a;text-shadow:0 0 10px rgba(230,150,95,.5);}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-5{color:#ffb066;text-shadow:0 0 12px rgba(255,170,85,.6);}',
+    '.sm-recall-pop .sm-recall-effort.sm-lv-6{color:#ffd36e;text-shadow:0 0 14px rgba(255,200,90,.75);}',
     '.sm-recall-pop .sm-recall-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
-    // ② 拖动中：只禁填充宽度过渡（更跟手），**不暂停流星/星星/扫光**（用户要求背景动效滑动时继续）；
-    // 粒子流动在 JS 里已暂停（sliding）保性能。
-    '.sm-recall-pop.is-sliding .sm-recall-fill{transition:none;}',
-    '.sm-recall-pop.is-sliding .sm-recall-thumb{transition:none;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
-    '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
-    '.sm-recall-pop .sm-recall-fill{transition:none;}',
-    '.sm-recall-pop .sm-recall-fill::before{animation:none;}',
-    '.sm-recall-pop .sm-recall-fill::after{transition:none;}}',
+    '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}}',
   ].join('')
 
   // 雪屋场景（toggle-snow-cabin，@Lattice_Node MIT）：滑块上方叙事预览。星空 --ld-* 色板覆盖（附带我们的）。
@@ -347,11 +281,15 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '[data-ld-part="toggle-snow-cabin"] .hit:focus-visible{outline:2px solid var(--_accent);',
     'outline-offset:calc(var(--_space)*.5);transition:outline-offset var(--_motion) ease;}',
     '@media (prefers-reduced-motion: reduce){[data-ld-part="toggle-snow-cabin"] .hit:focus-visible{transition:none;}}',
-    // 弹窗内：固定 272x166 叙事预览 + 星空色板覆盖（--ld-*）+ .hit 禁指针（滑块 range 独占交互）
-    '.sm-recall-pop .sm-snow-cabin{position:relative;z-index:1;width:272px;height:166px;margin:0 auto;',
+    // 弹窗内：雪屋=滑块本体，宽度由设置项驱动（--sm-cabin-w），高度=宽度/1.85；星空色板覆盖（--ld-*）。
+    // .hit 覆盖整个雪屋药丸（可拖动调档），恢复指针交互（原作 .hit 定位针对 1.32 倍容器，这里容器=药丸）。
+    '.sm-recall-pop .sm-snow-cabin{position:relative;z-index:1;width:var(--sm-cabin-w,250px);',
+    'height:calc(var(--sm-cabin-w,250px)/1.85);margin:0 auto;',
     '--ld-bg:#dfe8f8;--ld-surface:#1f3a4a;--ld-fg:#10162e;--ld-muted:#5a6f9a;--ld-accent:#f6a94a;',
     '--ld-wood:123 86 69;--ld-radius:14px;--ld-shadow:0 8px 24px rgba(4,6,20,.5);}',
-    '.sm-recall-pop .sm-snow-cabin .hit{pointer-events:none;cursor:default;}',
+    '.sm-recall-pop .sm-snow-cabin .hit{top:0;left:0;width:100%;height:100%;pointer-events:auto;cursor:grab;}',
+    '.sm-recall-pop .sm-snow-cabin .hit:active{cursor:grabbing;}',
+    '.sm-recall-pop .sm-snow-cabin .hit:focus{outline:none;}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -380,6 +318,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         writable: !!(snap && snap.writable),
         enabled: v.recallEnabled === true,
         effort: Number(v.recallEffort) || 0,
+        width: Number(v.recallSliderWidth) || 250,
       }
     }
     function getSnapshot() {
@@ -456,10 +395,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   function createRecallTrigger(bridge, commit, t) {
     // 未测量首帧隐藏（useAnchoredPosition 尚未算出位置时防跳动/闪位）
     var MEASURE_STYLE = { opacity: 0, visibility: 'hidden' }
-    // 复刻 Codex 滑块的粒子种子（20 个 [x,y]，基准宽 346）
-    var PARTICLE_SEEDS = [[17, 15], [20, 12], [28, 18], [48, 21], [69, 23], [95, 15], [112, 20],
-      [134, 15], [138, 24], [150, 9], [165, 20], [177, 10], [190, 22], [198, 26], [217, 15],
-      [237, 18], [254, 12], [275, 24], [290, 14], [315, 20]]
+    // 复刻 Codex 滑块档位文字颜色（sm-lv-0~6）见 CSS
     return function RecallComposerTrigger() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var openState = React.useState(false)
@@ -476,66 +412,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var phase = phaseState[0], setPhase = phaseState[1]
       var errValue = errState[0], setErr = errState[1]
       var local = localState[0], setLocal = localState[1]
-      // v1.2.20+：复刻 Codex 滑块粒子/爆开（canvas rAF 动画）
-      var sparksRef = React.useRef(null)
-      var burstRef = React.useRef(null)
-      var latestRef = React.useRef({ open: false, ultra: false, sliding: false })
 
       React.useEffect(function () { ensureStyle('sm-ef-style', EF_CSS) }, [])
       React.useEffect(function () { ensureStyle('sm-snow-cabin-css', SNOW_CSS) }, [])
-
-      // 复刻 Codex 滑块粒子/爆开 canvas 动画（rAF）。拖动中（sliding）暂停流动省性能；
-      // 进最高档（6）触发紫色爆开。open 时启动，close 清理。
-      React.useEffect(function () {
-        if (!open) return
-        var sparks = sparksRef.current, burst = burstRef.current
-        if (!sparks || !burst) return
-        var sctx = sparks.getContext('2d'), bctx = burst.getContext('2d')
-        var width = 248
-        var frame = 0, last = 0, travel = 0, burstAt = 0, wasUltra = false
-        function draw(time) {
-          var cur = latestRef.current
-          var delta = last ? Math.min(time - last, 50) / 1000 : 0
-          last = time
-          var ultra = cur.ultra && !cur.sliding
-          var speed = ultra ? 1 : 0
-          if (ultra && !wasUltra) burstAt = time
-          wasUltra = ultra
-          if (ultra) travel += delta
-          sctx.clearRect(0, 0, width * 2, 52)
-          bctx.clearRect(0, 0, 144, 144)
-          if (cur.open) {
-            var t = time / 1000
-            for (var i = 0; i < PARTICLE_SEEDS.length; i++) {
-              var px = PARTICLE_SEEDS[i][0], py = PARTICLE_SEEDS[i][1]
-              var phase = i * 2.39
-              var offset = ultra ? travel * (145 + i % 6 * 17) : 0
-              var x = (((px / 346 * width - offset + Math.sin(t * 9 + phase) * .7 * (1 - speed)) % width) + width) % width
-              var y = (py + Math.cos(t * 10 + phase) * .55 * (1 - speed) + Math.sin(t * 1.3 + phase) * .8 * speed) * 26 / 36
-              var idle = .55 + .3 * (.5 + .5 * Math.sin(t * 1.1 + phase))
-              var moving = .3 + .45 * (.5 + .5 * Math.sin(t * 2.4 + phase))
-              var radius = (i % 7 === 0 ? 2.1 : i % 4 === 0 ? 1.55 : 1.1) * 26 / 36
-              sctx.beginPath(); sctx.arc(x * 2, y * 2, radius * 2, 0, Math.PI * 2)
-              sctx.fillStyle = 'rgba(255,255,255,' + (idle + (moving - idle) * speed) + ')'
-              sctx.fill()
-            }
-            if (burstAt && time - burstAt < 520) {
-              var age = (time - burstAt) / 1000
-              for (var j = 0; j < 22; j++) {
-                var angle = j * 2.399 + .18
-                var bx = 72 + Math.cos(angle) * (43 + (48 + j % 5 * 12) * age * 2)
-                var by = 72 + Math.sin(angle) * (43 + (48 + j % 4 * 10) * age * 2)
-                bctx.beginPath(); bctx.arc(bx, by, (j % 6 === 0 ? 2.3 : 1.35) * 2 * (1 - age), 0, Math.PI * 2)
-                bctx.fillStyle = 'rgba(156,76,227,' + (.7 * (1 - age / .52)) + ')'
-                bctx.fill()
-              }
-            }
-          }
-          frame = requestAnimationFrame(draw)
-        }
-        frame = requestAnimationFrame(draw)
-        return function () { cancelAnimationFrame(frame) }
-      }, [open])
 
       function close() {
         setPhase('dismiss')
@@ -562,24 +441,12 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         if (v === 0) doCommit([{ key: 'recallEffort', value: 0 }, { key: 'recallEnabled', value: false }])
         else doCommit([{ key: 'recallEffort', value: v }, { key: 'recallEnabled', value: true }])
       }
-      function onSlide(e) {
-        var v = Number(e.target.value) || 0
-        // ① 本地即时回显：拖动中 value 用本地值（不等 store 往返），跟手不卡
-        localRef.current = v
-        setLocal(v)
-        if (timerRef.current) clearTimeout(timerRef.current)
-        // ② 停止 250ms 后 commit（完整往返）。**不清 localRef**：等 store 值（shown）追上本地值才清
-        // （见下方 effect），否则 displayValue 回落到未更新的旧 store 值 → 回弹竞态。
-        timerRef.current = setTimeout(function () { onLevel(v) }, 250)
-      }
 
       var disabled = state.status !== 'ready' || !state.writable
       var shown = state.enabled ? state.effort : 0
       // ① 拖动中显示本地值（即时跟手），否则回落 store 值；localRef.current 可能为 0，用 !== null 判
       var displayValue = localRef.current !== null ? localRef.current : shown
-      var pos = displayValue / 6
-      latestRef.current = { open: open, ultra: displayValue === 6, sliding: localRef.current !== null }
-      // ② 回弹治本（竞态）：commit 发出时不清 localRef（见 onSlide），等 store 值（shown）真正追上
+      // ② 回弹治本（竞态）：commit 发出时不清 localRef，等 store 值（shown）真正追上
       // 本地值才清——否则 displayValue 回落到未更新的旧 store 值 → 滑块弹回旧值。
       React.useEffect(function () {
         if (localRef.current !== null && shown === localRef.current) {
@@ -587,22 +454,40 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           setLocal(null)
         }
       }, [shown])
-      // 雪屋场景（雪夜山小屋，@Lattice_Node MIT）：open 时挂载，close 时销毁；档位 0-6 驱动叙事。
+      // 雪屋本身就是滑块（雪夜山小屋 @Lattice_Node MIT）：open 挂载 / close 销毁。
+      // onInput 拖动中即时回显档位文字；onCommit 松手吸到位后提交 store。
+      // setProgress 只跟随 store 值（shown）——拖动中雪屋自身驱动 x，不反向 setProgress 打断拖拽。
       var cabinRef = React.useRef(null)
       var cabinElRef = React.useRef(null)
       React.useEffect(function () {
-        if (!open) return
+        // 仅当弹窗可见且召回启用时挂载雪屋；0 档（recallEnabled=false）时组件 return null，
+        // open 不变但 enabled 变 → 依赖 [open, state.enabled] 确保销毁（否则 WebGL 实例残留）。
+        if (!(open && state.enabled)) return
         var el = cabinElRef.current
         if (!el) return
-        if (!cabinRef.current) cabinRef.current = smSnowCabinMount(el)
-        if (cabinRef.current && cabinRef.current.setProgress) cabinRef.current.setProgress(displayValue)
+        if (!cabinRef.current) {
+          cabinRef.current = smSnowCabinMount(el, {
+            onInput: function (lv) {
+              localRef.current = lv
+              setLocal(lv)
+            },
+            onCommit: function (lv) {
+              // 同步本地值到最终吸附档（onInput 末档可能≠onCommit 档），
+              // 否则 store 追上时 shown===localRef 不成立 → 显示值卡在拖动档。
+              localRef.current = lv
+              setLocal(lv)
+              onLevel(lv)
+            },
+          })
+        }
+        if (cabinRef.current && cabinRef.current.setProgress) cabinRef.current.setProgress(shown)
         return function () {
           if (cabinRef.current) { cabinRef.current.destroy(); cabinRef.current = null }
         }
-      }, [open])
+      }, [open, state.enabled])
       React.useEffect(function () {
-        if (cabinRef.current && cabinRef.current.setProgress) cabinRef.current.setProgress(displayValue)
-      }, [displayValue])
+        if (cabinRef.current && cabinRef.current.setProgress) cabinRef.current.setProgress(shown)
+      }, [shown])
       // 定位：弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳），改用 DSH 自带 useAnchoredPosition
       // （ModelSelect 同款：自动算位 + 视口不够自动翻转）。side:'top' = 弹窗在触发器上方（输入框在窗口底部）。
       // layoutKey：layout 变化时触发重算（composer 高度/视口缩放）。
@@ -631,48 +516,27 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             h('div', { className: 'sm-recall-stars' }),
             h('div', { className: 'sm-recall-meteor m1' }),
             h('div', { className: 'sm-recall-meteor m2' }),
-            // 眉标 //RECALL 与档位编号已删：档位说明文字显示在圆形滑块头上（随拖动移动、颜色随档位变，
-            // 圆形本体「月球→日蚀→太阳」渐变由 sm-lv-0~6 档位 class 驱动，见 CSS）。
-            // 雪屋叙事预览（雪夜山小屋 @Lattice_Node MIT）：滑块上方，档位 0-6 驱动（0=暗夜→6=月出）。
-            // 交互由滑块 range 独占（.hit pointer-events:none）；open 挂载 / close 销毁（见 effects）。
+            // 雪屋本身就是滑块（雪夜山小屋 @Lattice_Node MIT）：档位说明文字在雪屋上方，
+            // 拖动整个雪屋调 0-6 档（0=暗夜→6=月出），松手吸附最近档并提交。
+            // 雪屋 .hit 是交互层（可拖动）；宽度由设置项 state.width 驱动（--sm-cabin-w）。
+            h('div', { className: 'sm-recall-effort sm-lv-' + displayValue },
+              t('effort.' + displayValue),
+            ),
             h('div', {
               className: 'sm-snow-cabin',
               'data-ld-part': 'toggle-snow-cabin',
               lang: 'ja',
+              style: { '--sm-cabin-w': state.width + 'px' },
               ref: function (node) { cabinElRef.current = node },
             },
               h('canvas', { className: 'scene', 'aria-hidden': 'true' }),
               h('button', {
-                className: 'hit', type: 'button', role: 'switch', 'aria-checked': 'true',
-                'aria-label': 'Mountain cabin light', tabIndex: -1,
+                className: 'hit', type: 'button', role: 'slider',
+                'aria-valuemin': '0', 'aria-valuemax': '6', 'aria-valuenow': String(displayValue),
+                'aria-label': 'Recall effort slider', 'aria-orientation': 'horizontal',
               }),
               h('span', { className: 'vh', role: 'status', 'aria-live': 'polite', 'data-status': '' }),
               h('span', { className: 'probe', 'aria-hidden': 'true' }),
-            ),
-            h('div', {
-              className: 'sm-recall-track' + (displayValue === 6 ? ' maxed' : ''),
-              style: { '--sm-pos': pos },
-            },
-              // 1:1 复刻 Codex 滑块视觉层：轨道底 + 青蓝→紫尾迹填充（内嵌粒子 canvas）+ 档位刻度点 +
-              // 30px 圆手柄 + 爆开 canvas。交互仍由下方透明 range 接收（拖动/键盘/无障碍零改动）。
-              h('div', { className: 'sm-recall-fill' },
-                h('canvas', { ref: sparksRef, className: 'sm-recall-sparks', width: 496, height: 52 }),
-              ),
-              Array.from({ length: 7 }, function (_, i) {
-                return h('i', {
-                  key: i,
-                  className: 'sm-recall-dot' + (i <= displayValue ? ' passed' : ''),
-                  style: { '--sm-tick': i / 6 },
-                })
-              }),
-              h('div', { className: 'sm-recall-thumb sm-lv-' + displayValue },
-                h('span', { className: 'sm-recall-thumb-label' }, t('effort.' + displayValue)),
-              ),
-              h('canvas', { ref: burstRef, className: 'sm-recall-burst', width: 144, height: 144 }),
-              h('input', {
-                className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
-                value: displayValue, disabled: disabled, onChange: onSlide,
-              }),
             ),
             errValue ? h('span', { className: 'sm-recall-err' }, errValue) : null,
           ),
@@ -800,6 +664,27 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             h('div', { className: 'sm-note', style: { marginBottom: '8px' } }, t('card.effortNote')),
             btnRow,
           ),
+          // 雪屋滑块长度可调：设置面板选宽度（220/250/280/320），聊天区雪屋滑块跟随。
+          h('div', { className: 'sm-row', style: { marginTop: '10px' } },
+            h('span', { className: 'sm-ctl-label' }, t('card.sliderWidth')),
+            h('div', { className: 'sm-btns sm-width-btns' },
+              [220, 250, 280, 320].map(function (w) {
+                var active = ((localRef.current && localRef.current.width !== undefined)
+                  ? localRef.current.width : state.width) === w
+                return h('button', {
+                  key: w, className: 'sm-btn' + (active ? ' is-on' : ''),
+                  onClick: function () {
+                    localRef.current = Object.assign({}, localRef.current || {
+                      enabled: state.enabled, effort: state.effort, width: state.width,
+                    }, { width: w })
+                    setLocal(localRef.current)
+                    run([{ key: 'recallSliderWidth', value: w }])
+                  },
+                  disabled: disabled,
+                }, w + 'px')
+              }),
+            ),
+          ),
         ),
         h('div', { className: 'sm-section' },
           h('div', { className: 'sm-eyebrow' },
@@ -902,7 +787,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   }
 
 // ---- Snow night mountain cabin slider scene (toggle-snow-cabin by @Lattice_Node, MIT).
-//      Inlined as smSnowCabinMount(root); external drive via setProgress(level 0-6).
+//      Inlined as smSnowCabinMount(root, opts); the cabin IS the slider. Drag it to
+//      set level 0-6 (snap to nearest), opts.onInput fires while dragging and
+//      opts.onCommit after settling. Pill width follows the container (adjustable).
 ﻿// part.js — ESモジュール。rootの中だけを触る
 // 山小屋の灯りのスイッチ：スイッチのレールの中に、雪の夜のピクセルの世界があり、丸太の小屋に住人が1人暮らしている。
 //
@@ -1415,7 +1302,7 @@ void main() {
   outColor = vec4(clamp(color, 0.0, 1.0), alpha);
 }`;
 
-function smSnowCabinMount(root) {
+function smSnowCabinMount(root, opts = {}) {
   const cleanups = [];
   const on = (target, type, fn, options) => {
     target.addEventListener(type, fn, options);
@@ -2897,7 +2784,7 @@ function smSnowCabinMount(root) {
   const measure = () => {
     const box = root.getBoundingClientRect();
     const fullDpr = Math.min(2, devicePixelRatio || 1);
-    const nextFullK = pickK((Math.round(box.height * fullDpr) / 1.32) * (1 - 0.046 * 2));
+    const nextFullK = pickK(Math.round(box.height * fullDpr) * (1 - 0.046 * 2));
     if (nextFullK !== fullK) {
       fullK = nextFullK;
       renderScale = 1;
@@ -2912,8 +2799,10 @@ function smSnowCabinMount(root) {
     shape.cssH = box.height;
     shape.dpr = dpr;
     // 丸の大きさ：根の中に、1 : 1.85 で置く
-    shape.pillH = H / 1.32;
-    shape.pillW = shape.pillH * PILL_RATIO;
+    // pill = container box (width independent; the pixel world auto-centers and
+    // has enough horizontal content (-70..272 px) to cover any popup width)
+    shape.pillH = H;
+    shape.pillW = W;
     shape.bezel = shape.pillH * 0.046;
     shape.winW = shape.pillW - shape.bezel * 2;
     shape.winH = shape.pillH - shape.bezel * 2;
@@ -3241,6 +3130,11 @@ function smSnowCabinMount(root) {
       x += (clamp(drag.want) - x) * (1 - Math.exp(-dt * 34));
       velocity = (x - before) / Math.max(dt, 1 / 240);
       dirty = true;
+      const lv = Math.round(x * 6);
+      if (opts.onInput && lv !== lastInputLv) {
+        lastInputLv = lv;
+        opts.onInput(lv);
+      }
     } else if (moving) {
       // なめらかに減速して吸い付く
       const omega = calm ? 16 : 9.5;
@@ -3250,13 +3144,16 @@ function smSnowCabinMount(root) {
       dirty = true;
       if (Math.abs(target - x) < 0.0015 && Math.abs(velocity) < 0.03) {
         x = target;
-        if (x <= 0 || x >= 1) {
-          if (!calm) stretchV -= 3.2;
-          commit(x);
+        velocity = 0;
+        moving = false;
+        const lv = Math.round(target * 6);
+        branch = 'pm';
+        if (lv >= 6) {
+          if (nightClock < T_LIT) nightClock = T_LIT;
         } else {
-          velocity = 0;
-          moving = false;
+          nightClock = T_LIT;
         }
+        if (opts.onCommit) opts.onCommit(lv);
       }
       x = clamp(x);
     } else {
@@ -3340,6 +3237,7 @@ function smSnowCabinMount(root) {
 
   // ---- 入力
   let suppressClick = 0;
+  let lastInputLv = -1;
   on(button, 'pointerdown', (event) => {
     if (event.button !== 0) return;
     beginTravel();
@@ -3376,7 +3274,7 @@ function smSnowCabinMount(root) {
     if (wasMoved) {
       suppressClick = performance.now() + 300;
       // 近い方の端へ。勢いも少し数える
-      target = x + speed * 0.09 >= 0.5 ? 1 : 0;
+      target = Math.round(clamp(x + speed * 0.09) * 6) / 6;
       velocity = clamp(speed, -3, 3);
       moving = true;
     }
@@ -3386,18 +3284,9 @@ function smSnowCabinMount(root) {
   on(button, 'pointercancel', release);
   on(button, 'lostpointercapture', release);
 
-  const toggle = () => {
-    beginTravel();
-    target = (moving ? target >= 0.5 : x >= 0.5) ? 0 : 1;
-    moving = true;
-    wake();
-  };
-  on(button, 'click', () => {
-    if (performance.now() < suppressClick) return;
-    toggle();
-  });
+  // 0-6 连续滑块语义：纯点击不翻转（拖动/键盘调整档位）；原作二态 toggle 已弃用。
 
-  const STEP = 0.04;
+  const STEP = 1 / 6;
   on(button, 'keydown', (event) => {
     let dir = 0;
     if (event.key === 'ArrowRight' || event.key === 'ArrowUp') dir = 1;
@@ -3507,7 +3396,6 @@ function smSnowCabinMount(root) {
 
   // ---- external driver: 0-6 level -> cabin story (0=dark blizzard, 1-5=light
   //      grows / snow eases, 6=stay at right end -> moon rises via nightClock creep).
-  //      branch stays pm so clockOf uses nightClock (moonrise works).
   const setProgress = (v) => {
     const q = clamp(v / 6);
     x = q;
@@ -3545,6 +3433,8 @@ function smSnowCabinMount(root) {
   };
   return { destroy, setProgress };
 }
+
+
 
   return module.exports
 }})

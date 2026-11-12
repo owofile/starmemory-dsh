@@ -1,69 +1,61 @@
-# 雪夜山小屋滑块背景集成设计（v1.2.23 预研）
+# 雪夜山小屋滑块集成设计（v1.2.24 预研，重构版）
 
 ## 来源与协议
 - 作品：雪の夜の山小屋（Snow Night Mountain Cabin），作者 @Lattice_Node，ludion.ai/p/toggle-snow-cabin
 - 协议：MIT（可自由使用/修改，需保留作者署名在代码首行）
-- 原作为独立 toggle 开关：轨道内是像素画雪屋世界，开=灯亮、吹雪渐停、云散月出、住人出门看月；关=暴雪暗夜
-- 技术：WebGL2 着色器 + Canvas 2D 像素世界（24 色 RAMPS 调色） + OffscreenCanvas + 物理/光照模拟 + rAF
+- 技术：WebGL2 着色器 + Canvas 2D 像素世界（24 色 RAMPS 调色）+ OffscreenCanvas + 物理/光照模拟 + rAF
 
-## 三件套（已从页面提取）
-| 部件 | 内容 | 规模 |
+## v1.2.23 的问题（用户反馈，本版重构）
+- v1.2.23 把雪屋当"叙事预览"放滑块上方、下面另留普通 26px 轨道滑块 → 用户否定："雪屋不是滑块本身吗？怎么下面还有滑块？"
+- 本版（未发布重构）：**雪屋本身就是滑块本体**，删掉普通轨道滑块；档位文字显示在雪屋**上方**；雪屋**长度可调**（设置面板加宽度项）。
+
+## 关键技术结论：雪屋可当滑块 + 长度可调（用户问"能不能重复实现"）
+- 雪屋是**纯程序化绘制**（JS 按坐标画 PEAKS/forestTrees/PINES/paintGround，非位图）→ 理论上可 tile 重复。
+- 实测：世界内容覆盖 x∈[-70,272]（342 世界像素），弹窗内雪屋药丸世界宽仅约 150-200 像素 → **余量足够，当前尺寸无需 tile 就能随意拉宽**（仅 >600px 超宽才需 tile，留作将来备选）。
+- 原作药丸强制 1:1.85（`pillW=pillH*1.85`，`pillH=H/1.32`）不支持宽度独立 → 本版**打破固定比例**：`shape.pillW=W`、`shape.pillH=H`（容器尺寸即药丸尺寸），`pickK` 仍由高度定（k 是整数像素格，宽度不参与），世界自动居中适配，不露白。
+
+## 交互改造（雪屋 mount → 0-6 连续滑块）
+原作是**二态 toggle**（`commit` 设 x=0/1，release 吸两端）。本版改造：
+- `smSnowCabinMount(root, opts)` 签名加 `opts={onInput, onCommit}`。
+- **release 吸附最近档**：`target = round(clamp(x + speed*0.09) * 6) / 6`（替代 `>=.5?1:0`）。
+- **tick settle 回调**：吸到位后 `onCommit(round(target*6))`，并重置叙事状态（`branch='pm'`；`nightClock=T_LIT` 除非 6 档保留月出）。不再调原作二态 `commit`。
+- **drag onInput**：拖动中 x 更新，档位变化时 `onInput(round(x*6))`（`lastInputLv` 防抖）。
+- **键盘 STEP**：`0.04` → `1/6`（每键一档），settle 仍走 onCommit。
+- **删 click toggle**：纯点击不翻转（0-6 滑块语义），拖动/键盘才是交互。
+- `setProgress(v)`（外部驱动，open/设置面板同步）保留，但只跟随 store 值 `shown`，**不反向打断拖动**。
+
+## 0-6 档 → 叙事映射
+| 档位 | x | 叙事 |
 |---|---|---|
-| HTML | div[data-ld-part] 内 canvas.scene + button.hit + span.vh + span.probe | 333 字符 |
-| CSS | --ld-* 变量（6 色板：bg/surface/fg/muted/accent/wood）+ 布局 + .scene/.hit/.vh/.probe | 2832 字符 |
-| JS | mount(root) 函数声明，末尾自执行 mount(document.querySelector(...))，无 export | 89,805 字符 / 2623 行 |
+| 0 | 0 | 暴雪暗夜、灯灭（clock=T_DARK） |
+| 1-5 | v/6 | 灯渐亮、吹雪渐停（clock=T_DARK+(T_LIT-T_DARK)*v/6） |
+| 6 | 1 | 右端停留 → 雪停、云散、月出（nightClock creep T_LIT→T_CLEAR，约 26 秒渐升） |
 
-## 布局（几何约束决定）
-- 雪屋药丸比例约 1.64:1（宽:高），滑块轨道是 248x26（约 9.5:1）——**无法塞进 26px 轨道而不严重变形**
-- 决定：**雪屋场景作为叙事预览放在滑块上方**，弹窗加高；滑块在下方照旧复刻 Codex（26px 轨道 + 30px 圆形档位头）
-- 弹窗 272px 宽 → 雪屋容器 272x166（aspect-ratio 1.6439），滑块区 26px + 间距 → 弹窗总高约 210px（聊天区向上弹出，可容纳）
+叙事状态重置规则（settle 时）：非 6 档 `branch='pm'` + `nightClock=T_LIT`；6 档 `branch='pm'` + `nightClock>=T_LIT`（creep 继续）。拖回时从月夜逆向回放（原作行为），松手后归位到灯亮档。
 
-## 0-6 档 → 叙事映射（核心改造）
-原作叙事时间轴：T_DARK=0（暴雪暗夜）→ T_LIT=1（灯亮，吹雪渐停）→ T_CLEAR=2（雪停、月出、住人出门看月）
-- mount 内部：`x`(0-1) + `branch`(pm/am) + `nightClock`（右端停留 creep 到 T_CLEAR）
-- `clockOf()`：branch=am → mix(T_DARK, amStart, x)；x>=1 → nightClock；否则 T_DARK+(T_LIT-T_DARK)*x
-- 右端 creep 条件（tick L2375）：`x>=1 && !moving && !drag && nightClock<T_CLEAR`
+## 布局（雪屋 = 滑块本体）
+- 弹窗：`width:fit-content;min-width:272px`（容纳雪屋最大 320px），星空背景层保留。
+- 档位文字 `.sm-recall-effort`：雪屋**上方**，15px 粗体居中，颜色随档位 `sm-lv-0~6`（冷月→日蚀→太阳暖色）。
+- 雪屋 `.sm-snow-cabin`：`width:var(--sm-cabin-w,250px)`，`height:calc(var(--sm-cabin-w,250px)/1.85)`，居中。
+- 雪屋 `.hit`：覆盖整个药丸（`top:0;left:0;width:100%;height:100%`），`pointer-events:auto;cursor:grab`，`role="slider"` + `aria-valuenow`（原作 .hit 定位针对 1.32 倍容器，本版容器=药丸需覆盖）。
+- 删除：旧普通滑块（track/fill/dot/thumb/burst/range + 粒子/爆开 canvas rAF 动画 + 相关 CSS）。
 
-映射（改造 mount 暴露 setProgress(v 0-6)）：
-| 档位 | x | clock | 叙事 |
-|---|---|---|---|
-| 0 | 0 | T_DARK | 暴雪暗夜、灯灭 |
-| 1-5 | v/6 | T_DARK+(T_LIT-T_DARK)*x | 灯渐亮、吹雪渐停 |
-| 6 | 1 | nightClock（creep T_LIT→T_CLEAR） | 雪停、云散、月出（约 26 秒渐升，保留原味） |
+## 长度可调（设置面板）
+- 设置面板新增"雪屋滑块长度"宽度选择：220/250/280/320 px（config key `recallSliderWidth`）。
+- bridge `derive` 加 `width: Number(v.recallSliderWidth) || 250`；聊天区弹窗 `state.width` 驱动 `--sm-cabin-w`。
+- 雪屋 mount 的 `ResizeObserver`（原作自带）自动 re-measure 适配新宽度。
 
-setProgress 必须保持 branch='pm'（否则 clockOf 走 am 分支，月出失效）；非右端时复位 nightClock=T_LIT。
-
-## 配色（"附带我们的" = 星空色板覆盖 --ld-*）
-原色板：--ld-bg #e8effa(雪)、--ld-surface #2f6657(针叶树)、--ld-fg #171e45(夜)、--ld-muted #7088ba(雪阴)、--ld-accent #f4a640(火)、--ld-wood
-星空覆盖（夜空更接近我们深空蓝、灯更暖、雪偏冷月白）：
-- --ld-bg → #dfe8f8（冷月白）
-- --ld-surface → #1f3a4a（深空蓝绿）
-- --ld-fg → #10162e（星空深蓝，接近 #0a0d1a）
-- --ld-muted → #5a6f9a（蓝灰雪阴）
-- --ld-accent → #f6a94a（暖橙金灯火）
-- --ld-wood 保留（原木色）
-
-## 源码改造（mount）
-1. 改名 `function mount(root)` → `function smSnowCabinMount(root)`（防命名冲突）
-2. 删末尾自执行 `mount(document.querySelector(...));` 与 `</script>`
-3. 在 return cleanup 前定义 `setProgress(v)`（如上映射），return 改为 `{ destroy: <原cleanup>, setProgress }`
-4. 交互：保留原代码，但注入的 button.hit 设 `pointer-events:none;tabindex:-1`（CSS），滑块 range 独占交互；drag 恒 null，creep 条件恒满足
-5. 门禁：check-i18n 只允许 DICTS 有中文，雪屋源码的日文/中文**字符串字面量**（phaseName 状态、aria-label、CSS 里的中文注释若有引号包裹）必须英文化；日文注释（无英文引号包裹）保留
-
-## DSH 集成（client/index.js）
-- 内联：雪屋源码作为 `function smSnowCabinMount(root){...}` 直接嵌入（单文件客户端，约 +2623 行）
-- 弹窗渲染：滑块上方加 `.sm-snow-cabin` 容器（h() 创建 canvas.scene/button.hit/span.vh/span.probe），mount 后存 ref
-- 驱动：displayValue 变化 → ref.setProgress(displayValue)；弹窗 close → destroy
-- CSS：作品 CSS + 星空 --ld-* 覆盖 + 容器尺寸，注入 ensureStyle
-- 生命周期：弹窗 open 时 mount，close 时 destroy（IntersectionObserver 内部自动暂停）
+## 生命周期与竞态
+- 雪屋挂载：`useEffect([open, state.enabled])`，仅 `open && state.enabled` 时挂载；0 档（recallEnabled=false）组件 return null 但 open 不变 → **必须依赖 state.enabled** 才能在弹窗消失时销毁 WebGL 实例。
+- `setProgress` 只依赖 `shown`（store 值）：拖动中雪屋自身驱动 x，不反向 setProgress 打断拖拽；外部（设置面板/初始化）改档才 setProgress。
+- `onCommit` 同步 `localRef=最终档`：否则 onInput 末档 ≠ onCommit 档时，`useEffect([shown])` 清 localRef 条件不成立 → 显示值卡在拖动档（竞态修复）。
 
 ## 验证
-- node --check client/index.js（语法）
-- npm run gate（63/63，含 check-i18n 的 CJK 门禁）
-- 人工看点：弹窗打开 → 雪屋场景渲染；拖 0-6 → 灯渐亮/雪渐停/6 档月出；关闭弹窗 → destroy 无泄漏
+- `node --check client/index.js`（语法）+ `npm run gate`（63/63，含 check-i18n 的 CJK 门禁——雪屋字面量已英文化、日文注释已删）。
+- 人工看点：弹窗打开 → 档位文字在上、雪屋药丸在下；拖动雪屋 → 灯渐亮/雪渐停 + 文字实时跟随；松手 → 吸附最近档 + 提交；拖到 6 → 月出渐升；设置面板改宽度 → 雪屋长度变；拖到 0 → 关闭召回（弹窗消失，实例销毁）。
 
 ## 风险与注意
-- WebGL2 在 DSH webview 兼容性（有 Canvas 2D 降级 fallback，原作自带 useCanvas2d）
-- 90KB 内联使 client/index.js 增大到约 130KB（一次加载，可接受）
-- 雪屋 canvas 全时 rAF（弹窗打开时），性能开销；IntersectionObserver 不可见时自动停
-- 弹窗加高（210px）可能遮挡更多聊天区，需实测
+- WebGL2 在 DSH webview 兼容性（原作自带 Canvas 2D 降级 useCanvas2d）。
+- 雪屋全时 rAF（弹窗打开时）；IntersectionObserver 不可见时自动停。
+- 0 档拖到最左即关闭召回（弹窗消失），语义与 0=OFF 一致（可后续按需调）。
+- 雪屋药丸比例固定 1.85（宽度可调、高度=宽度/1.85）；若用户要任意高宽比需另改世界渲染（横向 tile）。
