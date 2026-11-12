@@ -38,6 +38,11 @@
 //   内容层加静态星点（多层 radial-gradient + 微闪）与两条错峰流星（斜向尾迹 + shoot keyframes），
 //   保留彩虹轨道/发光滑头（用户指定例外）作星云点缀；DSH 原生 Switch（灰白块）换自定义星空 toggle
 //   （细轨 + 彩虹圆点），整卡不再风格混杂。reduced-motion 时关星点/流星动效。
+//   v1.2.17（本版）：弹窗定位弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳：视口/composer
+//   高度变化时跑偏、弹窗「突然出现在上面」），改用 DSH 自带 useAnchoredPosition hook（ModelSelect 同款，
+//   自动算位 + 视口不够自动翻转）：trigger ref=triggerRef、pop ref=menuRef + style=menuPos（未测量时
+//   MEASURE_STYLE 隐藏首帧防跳动），side:'top' align:'end' gap:8 margin:12 layoutKey。删 CSS anchor-name /
+//   position-anchor 那套。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -49,6 +54,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   var primitives = require('@deepseek-ai/dsh-client-ui-primitives')
   var Switch = primitives.Switch
   var MenuSurface = primitives.MenuSurface
+  // useAnchoredPosition：ModelSelect 同款定位 hook（自动算位 + 视口不够自动翻转）。
+  // 0.2.2-rc.1 bundle 用这个，弃用 CSS anchor positioning（Chrome 125+ 新特性、行为不稳）。
+  var useAnchoredPosition = primitives.useAnchoredPosition
 
   var NS = 'starmemory-dsh'
   var PKG = 'starmemory-dsh'
@@ -164,7 +172,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     'color:var(--ef-onSignal);background:var(--ef-signal);}',
     // ---- 召回触发器（composer 右下角，照 ui-model-selection ModelSelect trigger）----
     '.sm-recall{position:relative;min-width:0;}',
-    '.sm-recall-trigger{anchor-name:var(--sm-recall-anchor);display:flex;align-items:center;gap:4px;',
+    '.sm-recall-trigger{display:flex;align-items:center;gap:4px;',
     'height:28px;padding:0 8px;border:0;border-radius:8px;outline:none;background:transparent;',
     'color:var(--dsw-alias-label-secondary,#5C5C5C);font-size:13px;line-height:20px;font-weight:400;cursor:pointer;}',
     '.sm-recall-trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.16));}',
@@ -173,10 +181,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;',
     'border-top:5px solid var(--dsw-alias-label-caption,#8A8A8A);transition:transform 120ms ease;}',
     '.sm-recall-caret.is-open{transform:rotate(180deg);}',
-    // ---- 弹出菜单（CSS anchor 向上定位；MenuSurface 材质背景被覆盖为深空渐变，星点/流星为内容层）----
-    '.sm-recall-pop{position:fixed;position-anchor:var(--sm-recall-anchor);',
-    'top:max(12px,var(--dsh-frame-overlay-top,12px));left:12px;right:anchor(right);',
-    'bottom:calc(anchor(top)+8px);align-self:safe end;justify-self:safe end;margin:0;z-index:1100;',
+    // ---- 弹出菜单（定位由 useAnchoredPosition style 驱动：position:fixed + top/left 等；MenuSurface 材质背景被覆盖为深空渐变，星点/流星为内容层）----
+    '.sm-recall-pop{position:fixed;margin:0;z-index:1100;',
     'display:flex;flex-direction:column;gap:10px;width:fit-content;height:fit-content;',
     'min-width:220px;max-width:min(320px,calc(100vw - 24px));padding:12px 14px;box-sizing:border-box;',
     'overflow:hidden;border:0;',
@@ -348,6 +354,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   // 动效：MenuSurface phase='enter'/'dismiss'（Menu 原语淡入/淡出，CSS 驱动）。
   // trigger 始终可点（首次 unavailable 时打开即写默认值解锁，见 onClick）。
   function createRecallTrigger(bridge, commit, t) {
+    // 未测量首帧隐藏（useAnchoredPosition 尚未算出位置时防跳动/闪位）
+    var MEASURE_STYLE = { opacity: 0, visibility: 'hidden' }
     return function RecallComposerTrigger() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var openState = React.useState(false)
@@ -356,10 +364,10 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var timerRef = React.useRef(null)
       var rootRef = React.useRef(null)
       var menuRef = React.useRef(null)
+      var triggerRef = React.useRef(null)
       var open = openState[0], setOpen = openState[1]
       var phase = phaseState[0], setPhase = phaseState[1]
       var errValue = errState[0], setErr = errState[1]
-      var id = React.useId ? React.useId() : 'sm-recall'
 
       React.useEffect(function () { ensureStyle('sm-ef-style', EF_CSS) }, [])
 
@@ -396,15 +404,26 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var shown = state.enabled ? state.effort : 0
       var pct = (shown / 6) * 100
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
-      var anchorStyle = { '--sm-recall-anchor': '--sm-recall-' + id.replace(/:/g, '') }
+      // 定位：弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳），改用 DSH 自带 useAnchoredPosition
+      // （ModelSelect 同款：自动算位 + 视口不够自动翻转）。side:'top' = 弹窗在触发器上方（输入框在窗口底部）。
+      // layoutKey：layout 变化时触发重算（composer 高度/视口缩放）。
+      var menuPos = useAnchoredPosition({
+        open: open,
+        anchorRef: triggerRef,
+        panelRef: menuRef,
+        side: 'top', align: 'end', gap: 8, margin: 12,
+        layoutKey: 'sm-recall',
+      })
 
       var pop = null
       if (open) {
         pop = ReactDOM.createPortal(
           h(MenuSurface, {
             ref: menuRef, className: 'sm-ef sm-recall-pop',
-            // --sm-rainbow 提至 pop 根：toggle 圆点与轨道填充共用（星云点缀色）
-            style: Object.assign({}, anchorStyle, { '--sm-rainbow': RAINBOW }),
+            // style = useAnchoredPosition 算出的绝对定位（position:fixed + top/left 等）；
+            // 未测量（menuPos 为 null）时用 MEASURE_STYLE 隐藏首帧防跳动。
+            // --sm-rainbow 提至 pop 根：toggle 圆点与轨道填充共用（星云点缀色）。
+            style: Object.assign({}, menuPos || MEASURE_STYLE, { '--sm-rainbow': RAINBOW }),
             phase: phase, role: 'menu', 'aria-label': t('slider.title'),
           },
             // 星空层：静态星点（多层 radial-gradient + 微闪）+ 两条错峰流星（z-index:-1，在材质之上、内容之下）
@@ -443,7 +462,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
 
       return h('div', { ref: rootRef, className: 'sm-ef sm-recall' },
         h('button', {
-          type: 'button', className: 'sm-recall-trigger', style: anchorStyle,
+          ref: triggerRef,
+          type: 'button', className: 'sm-recall-trigger',
           'aria-haspopup': 'menu', 'aria-expanded': open ? 'true' : 'false',
           onClick: function () {
             // 取消残留的 close/dismiss timer，避免「关闭动画中快速重开」被旧 timer 误关
