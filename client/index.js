@@ -197,8 +197,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-caret.is-open{transform:rotate(180deg);}',
     // ---- 弹出菜单（定位由 useAnchoredPosition style 驱动：position:fixed + top/left 等；MenuSurface 材质背景被覆盖为深空渐变，星点/流星为内容层）----
     '.sm-recall-pop{position:fixed;margin:0;z-index:1100;',
-    'display:flex;flex-direction:column;gap:10px;width:fit-content;height:fit-content;',
-    'min-width:220px;max-width:min(320px,calc(100vw - 24px));padding:12px 14px;box-sizing:border-box;',
+    'display:flex;flex-direction:column;gap:10px;width:272px;height:fit-content;',
+    'max-width:calc(100vw - 24px);padding:12px 14px;box-sizing:border-box;',
     'overflow:hidden;border:0;',
     // 深空主题：覆盖 MenuSurface 材质变量 + 浅色文字 token（星云/流星雨配色）
     '--dsw-menu-surface-fill:radial-gradient(ellipse at 50% 130%,#1c2340 0%,#0a0d1a 68%);',
@@ -244,51 +244,62 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#EDEDED);}',
     '.sm-recall-pop .sm-recall-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;',
     'color:var(--dsw-alias-label-caption,#8A93A6);}',
-    // 轨道：流星滑动条（照 Codex reasoning slider 结构，改星空配色）——深空细轨 + 青蓝→紫流星尾迹填充
-    // + 档位小星星 + 白色发光流星头（knob）；最高档（6）尾迹加扫光拖尾。交互层=透明 range 覆盖。
-    '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:220px;height:14px;}',
-    '.sm-recall-pop .sm-recall-rail{position:absolute;left:0;right:0;top:5px;height:4px;border-radius:2px;',
-    'background:rgba(255,255,255,.12);}',
-    '.sm-recall-pop .sm-recall-fill{position:absolute;left:0;top:5px;height:4px;border-radius:2px;',
-    'width:var(--sm-fill,0%);',
-    'background:linear-gradient(90deg,rgba(110,182,255,.85),rgba(156,76,227,.95));',
-    'box-shadow:0 0 8px rgba(110,182,255,.45);',
+    // 轨道：1:1 复刻 Codex reasoning slider（rail/fill/dot/knob/particles/burst 结构 + 尺寸），配色改星空。
+    // 轨道底：高 26px 圆角 16px（照 Codex .rail），星空下用浅白轨道
+    '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:248px;height:26px;border-radius:16px;',
+    'background:rgba(255,255,255,.10);}',
+    // 填充：左圆角 16px 右直角，宽 calc((100%-30px)*pos+15px)（照 Codex .fill，30=knob 宽），青蓝→紫星空尾迹
+    '.sm-recall-pop .sm-recall-fill{position:absolute;inset:0 auto 0 0;',
+    'width:calc((100% - 30px)*var(--sm-pos,0) + 15px);border-radius:16px 0 0 16px;overflow:hidden;pointer-events:none;',
+    'background:linear-gradient(90deg,#6EB6FF,#9C4CE3);',
     'transition:width .18s cubic-bezier(.2,.8,.2,1);}',
-    // 最高档（6）：流星尾迹扫光拖尾（拖尾更炫）
-    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::after{content:"";position:absolute;inset:-4px -14px;',
-    'border-radius:4px;',
-    'background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.18) 45%,rgba(255,255,255,.42) 50%,rgba(255,255,255,.14) 60%,transparent 82%);',
-    'animation:sm-meteor-shimmer 2.4s ease-in-out infinite alternate;}',
-    '@keyframes sm-meteor-shimmer{from{transform:translateX(-30%)}to{transform:translateX(30%)}}',
-    // 档位小星星（0-6 共 7 个；passed=已点亮）
-    '.sm-recall-pop .sm-recall-dot{position:absolute;top:6px;left:calc(var(--sm-tick,0%) - 1.5px);',
-    'width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.32);pointer-events:none;',
-    'transition:background .18s ease,box-shadow .18s ease;}',
-    '.sm-recall-pop .sm-recall-dot.passed{background:#fff;box-shadow:0 0 5px rgba(156,200,255,.9);}',
-    // 流星头：白色发光核心 + 青紫光晕 + 小尾迹
-    '.sm-recall-pop .sm-recall-thumb{position:absolute;top:1px;left:calc(var(--sm-fill,0%) - 6px);',
-    'width:12px;height:12px;border-radius:50%;pointer-events:none;',
-    'background:radial-gradient(circle at 35% 35%,#fff 20%,#9CC8FF 65%,rgba(156,200,255,0) 100%);',
-    'box-shadow:0 0 12px rgba(156,200,255,.85),-8px 0 10px -4px rgba(156,76,227,.6);',
+    // 最高档（6）：尾迹紫色发光 glow（照 Codex .fill:after，紫色渐变 + blur + mask）+ 扫光 shimmer
+    '.sm-recall-pop .sm-recall-fill::after{content:"";position:absolute;inset:-12px -24px;border-radius:28px;',
+    'background:linear-gradient(95deg,#3065de 0%,#7757ee 32%,#b052f1 53%,#7d42e7 76%,#5631d0 100%);',
+    'filter:blur(5px);opacity:0;',
+    'mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);',
+    '-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 22%,#000 78%,transparent 100%);',
+    'transform:translateX(42%);transition:transform 1.8s cubic-bezier(.16,1,.3,1),opacity 1.25s ease;}',
+    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::after{opacity:.9;transform:translateX(0);}',
+    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::before{content:"";position:absolute;inset:-10px -40px;',
+    'background:linear-gradient(100deg,transparent 18%,rgba(255,255,255,.03) 35%,rgba(255,255,255,.19) 48%,',
+    'rgba(255,255,255,.04) 66%,transparent 84%);',
+    'animation:sm-meteor-shimmer 4.5s ease-in-out infinite alternate;z-index:1;}',
+    '@keyframes sm-meteor-shimmer{from{transform:translateX(-45%)}to{transform:translateX(45%)}}',
+    // 档位刻度点（0-6 共 7 个；passed=已点亮）：4px 圆，top 11px，left calc((100%-30px)*tick+15px)（照 Codex .dot）
+    '.sm-recall-pop .sm-recall-dot{position:absolute;top:11px;left:calc((100% - 30px)*var(--sm-tick,0) + 15px);',
+    'width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(255,255,255,.32);pointer-events:none;',
+    'transition:opacity .18s ease .22s,transform .14s ease;}',
+    '.sm-recall-pop .sm-recall-dot.passed{background:rgba(255,255,255,.75);}',
+    // 手柄：30px 圆（照 Codex .knob），星空配色=深空底 + 青蓝紫光晕 + 细边框
+    '.sm-recall-pop .sm-recall-thumb{position:absolute;z-index:2;left:calc((100% - 30px)*var(--sm-pos,0));top:-2px;',
+    'width:30px;height:30px;border-radius:50%;pointer-events:none;background:#0a0d1a;',
+    'border:.5px solid rgba(255,255,255,.35);',
+    'box-shadow:0 0 12px rgba(156,200,255,.85),0 0 5px rgba(156,76,227,.55);',
     'transition:left .18s cubic-bezier(.2,.8,.2,1);}',
+    // 粒子 canvas（照 Codex .sparks）：248×26，铺在填充上
+    '.sm-recall-pop .sm-recall-sparks{display:block;width:248px;height:26px;}',
+    // 爆开 canvas（照 Codex .burst）：52×52，位于 knob 右上
+    '.sm-recall-pop .sm-recall-burst{position:absolute;left:calc(100% - 41px);top:-13px;width:52px;height:52px;',
+    'pointer-events:none;z-index:4;}',
     // 交互层：透明 range 覆盖（保留拖动/键盘/无障碍），视觉在下
     '.sm-recall-pop .sm-recall-range{-webkit-appearance:none;appearance:none;position:absolute;inset:0;z-index:3;',
-    'width:220px;height:14px;margin:0;background:transparent;outline:none;cursor:pointer;opacity:0;}',
-    '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:14px;background:transparent;}',
+    'width:248px;height:26px;margin:0;background:transparent;outline:none;cursor:pointer;opacity:0;}',
+    '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:26px;background:transparent;}',
     '.sm-recall-pop .sm-recall-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
-    'width:14px;height:14px;background:transparent;border:0;}',
-    '.sm-recall-pop .sm-recall-range::-moz-range-track{height:14px;background:transparent;}',
-    '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:14px;height:14px;background:transparent;border:0;}',
+    'width:26px;height:26px;background:transparent;border:0;}',
+    '.sm-recall-pop .sm-recall-range::-moz-range-track{height:26px;background:transparent;}',
+    '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:26px;height:26px;background:transparent;border:0;}',
     '.sm-recall-pop .sm-recall-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
-    // ②③ 拖动中：暂停星空/流星动画（省合成）+ 减淡填充发光（省重画），拖动更顺
+    // ②③ 拖动中：暂停星空/流星/扫光动画（省合成）+ 粒子流动在 JS 里已暂停（sliding），拖动更顺
     '.sm-recall-pop.is-sliding .sm-recall-stars,',
     '.sm-recall-pop.is-sliding .sm-recall-meteor,',
-    '.sm-recall-pop.is-sliding .sm-recall-track.maxed .sm-recall-fill::after{animation-play-state:paused;}',
-    '.sm-recall-pop.is-sliding .sm-recall-fill{box-shadow:none;}',
+    '.sm-recall-pop.is-sliding .sm-recall-fill::before{animation-play-state:paused;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
     '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
     '.sm-recall-pop .sm-recall-fill{transition:none;}',
-    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::after{animation:none;}}',
+    '.sm-recall-pop .sm-recall-fill::before{animation:none;}',
+    '.sm-recall-pop .sm-recall-fill::after{transition:none;}}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -393,6 +404,10 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
   function createRecallTrigger(bridge, commit, t) {
     // 未测量首帧隐藏（useAnchoredPosition 尚未算出位置时防跳动/闪位）
     var MEASURE_STYLE = { opacity: 0, visibility: 'hidden' }
+    // 复刻 Codex 滑块的粒子种子（20 个 [x,y]，基准宽 346）
+    var PARTICLE_SEEDS = [[17, 15], [20, 12], [28, 18], [48, 21], [69, 23], [95, 15], [112, 20],
+      [134, 15], [138, 24], [150, 9], [165, 20], [177, 10], [190, 22], [198, 26], [217, 15],
+      [237, 18], [254, 12], [275, 24], [290, 14], [315, 20]]
     return function RecallComposerTrigger() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
       var openState = React.useState(false)
@@ -409,8 +424,65 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var phase = phaseState[0], setPhase = phaseState[1]
       var errValue = errState[0], setErr = errState[1]
       var local = localState[0], setLocal = localState[1]
+      // v1.2.20+：复刻 Codex 滑块粒子/爆开（canvas rAF 动画）
+      var sparksRef = React.useRef(null)
+      var burstRef = React.useRef(null)
+      var latestRef = React.useRef({ open: false, ultra: false, sliding: false })
 
       React.useEffect(function () { ensureStyle('sm-ef-style', EF_CSS) }, [])
+
+      // 复刻 Codex 滑块粒子/爆开 canvas 动画（rAF）。拖动中（sliding）暂停流动省性能；
+      // 进最高档（6）触发紫色爆开。open 时启动，close 清理。
+      React.useEffect(function () {
+        if (!open) return
+        var sparks = sparksRef.current, burst = burstRef.current
+        if (!sparks || !burst) return
+        var sctx = sparks.getContext('2d'), bctx = burst.getContext('2d')
+        var width = 248
+        var frame = 0, last = 0, travel = 0, burstAt = 0, wasUltra = false
+        function draw(time) {
+          var cur = latestRef.current
+          var delta = last ? Math.min(time - last, 50) / 1000 : 0
+          last = time
+          var ultra = cur.ultra && !cur.sliding
+          var speed = ultra ? 1 : 0
+          if (ultra && !wasUltra) burstAt = time
+          wasUltra = ultra
+          if (ultra) travel += delta
+          sctx.clearRect(0, 0, width * 2, 52)
+          bctx.clearRect(0, 0, 144, 144)
+          if (cur.open) {
+            var t = time / 1000
+            for (var i = 0; i < PARTICLE_SEEDS.length; i++) {
+              var px = PARTICLE_SEEDS[i][0], py = PARTICLE_SEEDS[i][1]
+              var phase = i * 2.39
+              var offset = ultra ? travel * (145 + i % 6 * 17) : 0
+              var x = (((px / 346 * width - offset + Math.sin(t * 9 + phase) * .7 * (1 - speed)) % width) + width) % width
+              var y = (py + Math.cos(t * 10 + phase) * .55 * (1 - speed) + Math.sin(t * 1.3 + phase) * .8 * speed) * 26 / 36
+              var idle = .55 + .3 * (.5 + .5 * Math.sin(t * 1.1 + phase))
+              var moving = .3 + .45 * (.5 + .5 * Math.sin(t * 2.4 + phase))
+              var radius = (i % 7 === 0 ? 2.1 : i % 4 === 0 ? 1.55 : 1.1) * 26 / 36
+              sctx.beginPath(); sctx.arc(x * 2, y * 2, radius * 2, 0, Math.PI * 2)
+              sctx.fillStyle = 'rgba(255,255,255,' + (idle + (moving - idle) * speed) + ')'
+              sctx.fill()
+            }
+            if (burstAt && time - burstAt < 520) {
+              var age = (time - burstAt) / 1000
+              for (var j = 0; j < 22; j++) {
+                var angle = j * 2.399 + .18
+                var bx = 72 + Math.cos(angle) * (43 + (48 + j % 5 * 12) * age * 2)
+                var by = 72 + Math.sin(angle) * (43 + (48 + j % 4 * 10) * age * 2)
+                bctx.beginPath(); bctx.arc(bx, by, (j % 6 === 0 ? 2.3 : 1.35) * 2 * (1 - age), 0, Math.PI * 2)
+                bctx.fillStyle = 'rgba(156,76,227,' + (.7 * (1 - age / .52)) + ')'
+                bctx.fill()
+              }
+            }
+          }
+          frame = requestAnimationFrame(draw)
+        }
+        frame = requestAnimationFrame(draw)
+        return function () { cancelAnimationFrame(frame) }
+      }, [open])
 
       function close() {
         setPhase('dismiss')
@@ -451,7 +523,8 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var shown = state.enabled ? state.effort : 0
       // ① 拖动中显示本地值（即时跟手），否则回落 store 值；localRef.current 可能为 0，用 !== null 判
       var displayValue = localRef.current !== null ? localRef.current : shown
-      var pct = (displayValue / 6) * 100
+      var pos = displayValue / 6
+      latestRef.current = { open: open, ultra: displayValue === 6, sliding: localRef.current !== null }
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
       // 定位：弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳），改用 DSH 自带 useAnchoredPosition
       // （ModelSelect 同款：自动算位 + 视口不够自动翻转）。side:'top' = 弹窗在触发器上方（输入框在窗口底部）。
@@ -500,20 +573,22 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             ),
             h('div', {
               className: 'sm-recall-track' + (displayValue === 6 ? ' maxed' : ''),
-              style: { '--sm-fill': pct + '%' },
+              style: { '--sm-pos': pos },
             },
-              // 流星滑动条视觉层：深空细轨 + 青蓝→紫流星尾迹填充 + 档位小星星 + 白色发光流星头。
-              // 交互仍由下方透明 range 接收（拖动/键盘/无障碍零改动，onSlide 本地回显不变）。
-              h('div', { className: 'sm-recall-rail' }),
-              h('div', { className: 'sm-recall-fill' }),
+              // 1:1 复刻 Codex 滑块视觉层：轨道底 + 青蓝→紫尾迹填充（内嵌粒子 canvas）+ 档位刻度点 +
+              // 30px 圆手柄 + 爆开 canvas。交互仍由下方透明 range 接收（拖动/键盘/无障碍零改动）。
+              h('div', { className: 'sm-recall-fill' },
+                h('canvas', { ref: sparksRef, className: 'sm-recall-sparks', width: 496, height: 52 }),
+              ),
               Array.from({ length: 7 }, function (_, i) {
                 return h('i', {
                   key: i,
                   className: 'sm-recall-dot' + (i <= displayValue ? ' passed' : ''),
-                  style: { '--sm-tick': (i / 6 * 100) + '%' },
+                  style: { '--sm-tick': i / 6 },
                 })
               }),
               h('div', { className: 'sm-recall-thumb' }),
+              h('canvas', { ref: burstRef, className: 'sm-recall-burst', width: 144, height: 144 }),
               h('input', {
                 className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
                 value: displayValue, disabled: disabled, onChange: onSlide,
