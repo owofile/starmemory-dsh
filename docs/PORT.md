@@ -85,10 +85,11 @@ manual.json 与 fragment-config.json 作为**随包只读资产**放进包内（
   商店不可发现且要多一步手写 patch。bundle 化代价极小（一个 cordis.patch.yml + package.json
   一个字段）。
 - client half（设置页/面板）仍后置 Phase 5，形态不变（bundle 本就支持 client half）。
-- 安装通道：`dsh plugin --profile web add github:owofile/starmemory-dsh#v1.0.0`（bundle 自动挂载）。
+- 安装通道：`dsh plugin --profile web add github:owofile/starmemory-dsh`（bundle 自动挂载；不带 tag 取 main 最新）。
 - **版本与发布结构**：**仓库根 = npm 包根 = 市场发现入口**（generator 只认根 package.json
-  声明的 bundle）；`vX.Y.Z/` 目录是发布快照（人类归档，不参与发现）；版本由根 package.json
-  `version` + git tag（`vX.Y.Z`）管理，两者必须严格对应；`private: false`、无 prepare
+  声明的 bundle）；**不存版本快照目录**（v1.0.0~v1.2.12 已归档）；**小功能/小修不 bump version**
+  （commit → push，git 历史即版本史）；**里程碑（新功能/行为变更）才升 `minor`/`major` + GitHub
+  Releases 发布，tag 不带 `v` 前缀**（如 `1.3.0`）；`private: false`、无 prepare
   构建脚本（产物入库，零 allowBuilds 放行）。
 
 **硬约束（来自 references，违反即失败）**：
@@ -123,14 +124,15 @@ starmemory-dsh/                    # 仓库根 = npm 包根 = 市场发现入口
 │   ├── tools/                     # 每工具一个文件，defineTool 定义（index.mjs 汇总注册）
 │   ├── manual.json                # 随包只读资产（源 manual.json 直拷）
 │   └── migrate.js                 # 一次性旧数据导入（§6.2）
-├── scripts/                       # 开发自测脚本（schema 门禁等），不进 files
-├── test/                          # node --test 单测，不进 files
-├── v1.0.0/                        # 发布快照（VERSION.txt + INSTALL.md + 插件包快照，不参与发现）
-├── docs/  png/  bugs/             # 与 opencode 版仓库同架构
+├── scripts/                       # 门禁校验脚本（check:client / check:i18n / check:package），不进 files
+├── tests/                         # node --test 单测，不进 files
+├── assets/                        # banner / logo（仓库展示用，不进 files）
+├── docs/                          # 移植契约、设计说明、踩坑记录
 └── README.md                      # 使用者向（Phase 4 写，<200 行，无 emoji）
 ```
 
-> 版本发布方式：更新根 package.json 的 version → 快照到 vX.Y.Z/ → 打 vX.Y.Z git tag（tag 与根包版本严格对应）。
+> 版本发布方式（v1.2.19+ 重设计）：小功能/小修 `commit → push`（**不 bump**）；里程碑升 `minor`/`major`
+> + 打**无 v 前缀** tag（如 `1.3.0`）+ GitHub Releases。已发布的 v1.2.13~v1.2.19 保留 v 前缀（历史锚点）。
 
 entry 骨架：
 

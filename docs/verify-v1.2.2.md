@@ -1,5 +1,7 @@
 # v1.2.2 测试机验收步骤（照做即可）
 
+> 注意：这是 v1.2.2 的历史验收文档，槽位/目录后续已演进（召回 UI 现为 composer 右下角 `conversation.input.right`、目录已重设计），仅作历史参考；当前状态看 README 与 `StarMemory-DSH项目经验总结-v1.2.19.md`。
+
 > 目标：验证 StarMemory DSH v1.2.2（tag `v1.2.2`）的设置面板 + 聊天区召回滑块 + 配置同步 + 维护日志。
 > 详细设计见 `docs/v1.2.0-settings-panel.md`。全程 F12 Console 保持打开（client 报错只 console.warn，白屏红线）。
 > 数据根 `~/.starmemory/`；配置 `~/.starmemory/plugin.log`。
