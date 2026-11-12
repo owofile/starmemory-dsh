@@ -34,6 +34,10 @@
 //   v1.2.15（本版）：聊天区滑块（shell.overlay fixed 右上角）改为聊天输入框右下角召回触发器（composer 子槽
 //   conversation.input.right），照 ModelSelect 姿势（trigger「召回」+ createPortal(MenuSurface) + CSS anchor
 //   向上弹出），Menu 原语淡入/淡出动效；数据仍走 configForms scope，与 settings.section 面板同源。
+//   v1.2.16（本版）：滑块弹出模块统一「星空流星雨」主题——覆盖 MenuSurface 材质变量为深空渐变背景，
+//   内容层加静态星点（多层 radial-gradient + 微闪）与两条错峰流星（斜向尾迹 + shoot keyframes），
+//   保留彩虹轨道/发光滑头（用户指定例外）作星云点缀；DSH 原生 Switch（灰白块）换自定义星空 toggle
+//   （细轨 + 彩虹圆点），整卡不再风格混杂。reduced-motion 时关星点/流星动效。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
@@ -169,41 +173,79 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;',
     'border-top:5px solid var(--dsw-alias-label-caption,#8A8A8A);transition:transform 120ms ease;}',
     '.sm-recall-caret.is-open{transform:rotate(180deg);}',
-    // 弹出菜单（照 ModelSelect .menu：CSS anchor 向上定位；材质由 MenuSurface 提供，阴影/边框靠本类）
+    // ---- 弹出菜单（CSS anchor 向上定位；MenuSurface 材质背景被覆盖为深空渐变，星点/流星为内容层）----
     '.sm-recall-pop{position:fixed;position-anchor:var(--sm-recall-anchor);',
     'top:max(12px,var(--dsh-frame-overlay-top,12px));left:12px;right:anchor(right);',
     'bottom:calc(anchor(top)+8px);align-self:safe end;justify-self:safe end;margin:0;z-index:1100;',
     'display:flex;flex-direction:column;gap:10px;width:fit-content;height:fit-content;',
     'min-width:220px;max-width:min(320px,calc(100vw - 24px));padding:12px 14px;box-sizing:border-box;',
-    'overflow:hidden;color:var(--dsw-alias-label-primary,#161616);border:0;',
-    '--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);}',
+    'overflow:hidden;border:0;',
+    // 深空主题：覆盖 MenuSurface 材质变量 + 浅色文字 token（星云/流星雨配色）
+    '--dsw-menu-surface-fill:radial-gradient(ellipse at 50% 130%,#1c2340 0%,#0a0d1a 68%);',
+    '--dsw-alias-label-primary:#EDEDED;--dsw-alias-label-secondary:#C6CDE0;',
+    '--dsw-alias-label-caption:#8A93A6;--dsw-alias-label-dimmed:#6B7280;',
+    '--dsw-elevation-stroke-color:rgba(120,150,255,.28);box-shadow:0 10px 34px rgba(0,0,0,.55);}',
+    // 静态星点（多层 radial-gradient 星 + 微闪脉动）
+    '.sm-recall-pop .sm-recall-stars{position:absolute;inset:0;z-index:-1;pointer-events:none;',
+    'background-image:radial-gradient(1.6px 1.6px at 18% 26%,rgba(255,255,255,.95),transparent),',
+    'radial-gradient(1px 1px at 62% 16%,rgba(190,215,255,.8),transparent),',
+    'radial-gradient(1.4px 1.4px at 84% 52%,rgba(255,255,255,.7),transparent),',
+    'radial-gradient(1px 1px at 38% 68%,rgba(170,200,255,.6),transparent),',
+    'radial-gradient(1.6px 1.6px at 8% 78%,rgba(255,255,255,.85),transparent),',
+    'radial-gradient(1px 1px at 74% 84%,rgba(255,255,255,.5),transparent),',
+    'radial-gradient(1px 1px at 48% 42%,rgba(255,255,255,.45),transparent);',
+    'animation:sm-twinkle 4.5s ease-in-out infinite alternate;}',
+    '@keyframes sm-twinkle{0%{opacity:.55}50%{opacity:1}100%{opacity:.7}}',
+    // 流星：斜向尾迹（头白/尾透明），错峰划过（照 effect-labs shooting-star）
+    '.sm-recall-pop .sm-recall-meteor{position:absolute;z-index:-1;pointer-events:none;',
+    'width:64px;height:2px;border-radius:2px;',
+    'background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(154,208,255,.5),transparent);',
+    'animation:sm-shoot 6s linear infinite;opacity:0;}',
+    '.sm-recall-pop .sm-recall-meteor.m1{top:16%;left:78%;animation-delay:0s;}',
+    '.sm-recall-pop .sm-recall-meteor.m2{top:44%;left:30%;width:46px;animation-delay:2.8s;}',
+    '@keyframes sm-shoot{0%{transform:translate(0,0) rotate(-45deg);opacity:0;}',
+    '4%{opacity:.9;}28%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}',
+    '100%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}}',
+    // 自定义星空开关（替代 DSH 原生 Switch，避免灰白块）：细轨 + 彩虹圆点
+    '.sm-recall-pop .sm-recall-toggle{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;',
+    'background:none;cursor:pointer;color:var(--dsw-alias-label-primary,#EDEDED);font-size:12px;line-height:1;}',
+    '.sm-recall-pop .sm-recall-toggle:disabled{cursor:default;opacity:.45;}',
+    '.sm-recall-pop .sm-recall-knob{position:relative;width:28px;height:15px;border-radius:8px;',
+    'background:rgba(255,255,255,.14);transition:background .18s ease;}',
+    '.sm-recall-pop .sm-recall-knob::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;',
+    'border-radius:50%;background:#0a0d1a;transition:left .18s ease;box-shadow:0 0 4px rgba(255,255,255,.4);}',
+    '.sm-recall-pop .sm-recall-toggle.is-on .sm-recall-knob{background:var(--sm-rainbow);}',
+    '.sm-recall-pop .sm-recall-toggle.is-on .sm-recall-knob::after{left:15px;background:#0a0d1a;}',
+    // 头部眉标 / 数字
     '.sm-recall-pop .sm-recall-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}',
     '.sm-recall-pop .sm-recall-en{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;',
-    'color:var(--dsw-alias-label-caption,#8A8A8A);}',
+    'color:var(--dsw-alias-label-caption,#8A93A6);}',
     '.sm-recall-pop .sm-recall-num{display:flex;align-items:baseline;gap:4px;}',
-    '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#161616);}',
+    '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#EDEDED);}',
     '.sm-recall-pop .sm-recall-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;',
-    'color:var(--dsw-alias-label-caption,#8A8A8A);}',
-    // 轨道：暗底像素分格 + 彩虹填充（保留）+ 原生滑头（彩虹发光，保留）
+    'color:var(--dsw-alias-label-caption,#8A93A6);}',
+    // 轨道：深空分格 + 彩虹填充（星云点缀）+ 彩虹发光滑头（保留）
     '.sm-recall-pop .sm-recall-track{position:relative;width:220px;height:12px;}',
     '.sm-recall-pop .sm-recall-fill{position:absolute;left:0;top:3px;height:6px;border-radius:0;',
-    'width:var(--sm-fill,0%);background:var(--sm-rainbow);opacity:.85;',
-    'transition:width .22s cubic-bezier(.7,0,.2,1);}',
+    'width:var(--sm-fill,0%);background:var(--sm-rainbow);opacity:.9;',
+    'transition:width .22s cubic-bezier(.7,0,.2,1);box-shadow:0 0 6px rgba(154,208,255,.35);}',
     '.sm-recall-pop .sm-recall-range{-webkit-appearance:none;appearance:none;position:relative;z-index:2;',
     'width:220px;height:12px;margin:0;background:transparent;outline:none;cursor:pointer;}',
     '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:12px;',
-    'background:repeating-linear-gradient(90deg,#2E2E2E 0 17px,rgba(0,0,0,.5) 17px 19px);}',
+    'background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 17px,rgba(10,13,26,.7) 17px 19px);}',
     '.sm-recall-pop .sm-recall-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
     'width:11px;height:11px;margin-top:-1px;border-radius:0;background:var(--sm-rainbow);',
-    'border:1px solid rgba(255,255,255,.75);',
+    'border:1px solid rgba(255,255,255,.8);',
     'box-shadow:0 0 8px rgba(54,197,240,.9),7px 0 0 -2px rgba(255,95,109,.6),',
     '14px 0 0 -4px rgba(255,195,113,.4),21px 0 0 -6px rgba(54,197,240,.25);}',
     '.sm-recall-pop .sm-recall-range::-moz-range-track{height:12px;background:transparent;}',
     '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:11px;height:11px;border-radius:0;',
-    'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.75);',
+    'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.8);',
     'box-shadow:0 0 8px rgba(54,197,240,.9);}',
     '.sm-recall-pop .sm-recall-err{font-size:11px;font-weight:600;color:#FFFA00;}',
-    '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-fill{transition:none;}}',
+    '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
+    '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
+    '.sm-recall-pop .sm-recall-fill{transition:none;}}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -360,18 +402,33 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       if (open) {
         pop = ReactDOM.createPortal(
           h(MenuSurface, {
-            ref: menuRef, className: 'sm-ef sm-recall-pop', style: anchorStyle,
+            ref: menuRef, className: 'sm-ef sm-recall-pop',
+            // --sm-rainbow 提至 pop 根：toggle 圆点与轨道填充共用（星云点缀色）
+            style: Object.assign({}, anchorStyle, { '--sm-rainbow': RAINBOW }),
             phase: phase, role: 'menu', 'aria-label': t('slider.title'),
           },
+            // 星空层：静态星点（多层 radial-gradient + 微闪）+ 两条错峰流星（z-index:-1，在材质之上、内容之下）
+            h('div', { className: 'sm-recall-stars' }),
+            h('div', { className: 'sm-recall-meteor m1' }),
+            h('div', { className: 'sm-recall-meteor m2' }),
             h('div', { className: 'sm-recall-head' },
               h('span', { className: 'sm-recall-en' }, '// RECALL'),
-              Switch({ checked: state.enabled, onChange: onToggle, label: t('card.autoRecall'), disabled: disabled }),
+              h('button', {
+                type: 'button',
+                className: 'sm-recall-toggle' + (state.enabled ? ' is-on' : ''),
+                onClick: function () { onToggle(!state.enabled) },
+                disabled: disabled,
+                'aria-pressed': state.enabled ? 'true' : 'false',
+              },
+                h('span', { className: 'sm-recall-knob' }),
+                h('span', { className: 'sm-recall-toggle-label' }, t('card.autoRecall')),
+              ),
             ),
             h('div', { className: 'sm-recall-num' },
               h('span', { className: 'sm-n' }, 'No.' + pad(shown)),
               h('span', { className: 'sm-c' }, '/ 06'),
             ),
-            h('div', { className: 'sm-recall-track', style: { '--sm-rainbow': RAINBOW, '--sm-fill': pct + '%' } },
+            h('div', { className: 'sm-recall-track', style: { '--sm-fill': pct + '%' } },
               h('div', { className: 'sm-recall-fill' }),
               h('input', {
                 className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
