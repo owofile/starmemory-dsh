@@ -46,6 +46,12 @@
 //   v1.2.18（本版）：图层修复（StarMemory-弹窗布局与动效结构.md §三）——星点/流星 z-index:-1 → 0
 //   （原被 MenuSurface 不透明深空背景 .material 盖住，动效在跑但看不见）；内容元素（head/num/track/err）
 //   加 position:relative; z-index:1（确保在星点/流星之上）。动画本就在，图层顺序对即可见。
+//   v1.2.20（本版）：点击延迟优化（流畅优先）——① 设置面板（settings.section）开关/档位按钮点击
+//   走 configForms commit 往返才更新 UI（无本地回显 → 点击后高亮延迟）。修法：本地回显（localRef
+//   存乐观值 {enabled,effort}，点击立即 setLocal 切换 UI，commit 后台写；state 追上后清 localRef
+//   回落 state 无闪回，commit 失败保持乐观值）；② 滑块改版：召回滑块改照 DSH-Codex-reasoning-
+//   effort-slider 结构 + 星空流星风（深空细轨 + 青蓝→紫流星尾迹填充 + 档位小星星 + 白色发光流星头
+//   sm-recall-thumb，最高档加扫光拖尾；交互仍走透明 range 零改动）。
 //   v1.2.19（本版）：滑块卡顿修复（拖动掉帧）——① 滑块受控 + 每 250ms 停顿走完整 commit 往返 +
 //   重渲染时星空动画/大 box-shadow 重新合成。修法：拖动用本地 state 即时回显（value=displayValue，
 //   localRef 存拖动值，stop 250ms 才 commit，commit 后回落 store）；② 拖动加 .is-sliding class 暂停
@@ -552,6 +558,11 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var err = React.useState('')
       var errValue = err[0], setErr = err[1]
       var unlockRef = React.useRef(false)
+      // v1.2.20 点击延迟优化：设置面板本地回显（开关/档位点击立即切换 UI，不等 configForms 往返）。
+      // localRef 存乐观值 {enabled,effort}；state 追上来后清（无闪回），commit 失败保持乐观值。
+      var localRef = React.useRef(null)
+      var localState = React.useState(null)
+      var setLocal = localState[1]
 
       // v1.2.14 首次配置死锁解锁：host 未 served 本 namespace → snapshot.status === 'unavailable'
       // → Switch/按钮 disabled → 无法写入 → 死锁。写一次默认值，host 收到写入即 served
@@ -574,18 +585,37 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         })
       }, [state.status])
 
+      // v1.2.20：state 追上本地回显时清 localRef（UI 回落 state，同值无闪变）；commit 失败则不追、保持乐观值。
+      React.useEffect(function () {
+        if (!localRef.current) return
+        if (state.enabled === localRef.current.enabled && state.effort === localRef.current.effort) {
+          localRef.current = null
+        }
+      }, [state])
+
       function run(ops) { setErr(commit(ops) || '') }
-      function onToggle(next) { run([{ key: 'recallEnabled', value: !!next }]) }
+      function onToggle(next) {
+        // 本地立即回显（开关点击秒切换），commit 后台写
+        localRef.current = { enabled: !!next, effort: localRef.current ? localRef.current.effort : state.effort }
+        setLocal(localRef.current)
+        run([{ key: 'recallEnabled', value: !!next }])
+      }
       function onLevel(v) {
+        // 本地立即回显（档位点击秒高亮），commit 后台写
+        localRef.current = { enabled: v !== 0, effort: v }
+        setLocal(localRef.current)
         if (v === 0) run([{ key: 'recallEffort', value: 0 }, { key: 'recallEnabled', value: false }])
         else run([{ key: 'recallEffort', value: v }, { key: 'recallEnabled', value: true }])
       }
 
       var disabled = state.status !== 'ready' || !state.writable
+      // 显示值：本地回显优先（点击立即切换），否则 state
+      var shownEnabled = localRef.current ? localRef.current.enabled : state.enabled
+      var shownEffort = localRef.current ? localRef.current.effort : state.effort
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
       var btnRow = h('div', { className: 'sm-btns' },
         [0, 1, 2, 3, 4, 5, 6].map(function (i) {
-          var active = state.enabled && state.effort === i
+          var active = shownEnabled && shownEffort === i
           return h('button', {
             key: i,
             className: 'sm-btn' + (active ? ' is-on' : ''),
@@ -605,7 +635,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             h('span', { className: 'sm-zh' }, t('card.controlTitle')),
           ),
           h('div', { className: 'sm-row' },
-            Switch({ checked: state.enabled, onChange: onToggle, label: t('card.autoRecall'), disabled: disabled }),
+            Switch({ checked: shownEnabled, onChange: onToggle, label: t('card.autoRecall'), disabled: disabled }),
             h('span', { className: 'sm-ctl-label' }, t('card.autoRecall')),
           ),
           h('div', null,
