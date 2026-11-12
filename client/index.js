@@ -46,12 +46,12 @@
 //   v1.2.18（本版）：图层修复（StarMemory-弹窗布局与动效结构.md §三）——星点/流星 z-index:-1 → 0
 //   （原被 MenuSurface 不透明深空背景 .material 盖住，动效在跑但看不见）；内容元素（head/num/track/err）
 //   加 position:relative; z-index:1（确保在星点/流星之上）。动画本就在，图层顺序对即可见。
-//   v1.2.20（本版）：点击延迟优化（流畅优先）——① 设置面板（settings.section）开关/档位按钮点击
-//   走 configForms commit 往返才更新 UI（无本地回显 → 点击后高亮延迟）。修法：本地回显（localRef
-//   存乐观值 {enabled,effort}，点击立即 setLocal 切换 UI，commit 后台写；state 追上后清 localRef
-//   回落 state 无闪回，commit 失败保持乐观值）；② 滑块改版：召回滑块改照 DSH-Codex-reasoning-
-//   effort-slider 结构 + 星空流星风（深空细轨 + 青蓝→紫流星尾迹填充 + 档位小星星 + 白色发光流星头
-//   sm-recall-thumb，最高档加扫光拖尾；交互仍走透明 range 零改动）。
+//   本版（未发版，小改不 bump）：点击延迟优化（流畅优先）——① 设置面板（settings.section）开关/档位
+//   按钮点击走 configForms commit 往返才更新 UI（无本地回显 → 点击后高亮延迟）。修法：本地回显
+//   （localRef 存乐观值 {enabled,effort}，点击立即 setLocal 切换 UI，commit 后台写；state 追上后清
+//   localRef 回落 state 无闪回，commit 失败保持乐观值）；② 滑块改版：召回滑块改照 DSH-Codex-
+//   reasoning-effort-slider 结构 + 星空流星风（深空细轨 + 青蓝→紫流星尾迹填充 + 档位小星星 + 白色
+//   发光流星头 sm-recall-thumb，最高档加扫光拖尾；交互仍走透明 range 零改动）。
 //   v1.2.19（本版）：滑块卡顿修复（拖动掉帧）——① 滑块受控 + 每 250ms 停顿走完整 commit 往返 +
 //   重渲染时星空动画/大 box-shadow 重新合成。修法：拖动用本地 state 即时回显（value=displayValue，
 //   localRef 存拖动值，stop 250ms 才 commit，commit 后回落 store）；② 拖动加 .is-sliding class 暂停
