@@ -238,32 +238,51 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#EDEDED);}',
     '.sm-recall-pop .sm-recall-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;',
     'color:var(--dsw-alias-label-caption,#8A93A6);}',
-    // 轨道：深空分格 + 彩虹填充（星云点缀）+ 彩虹发光滑头（保留）
-    '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:220px;height:12px;}',
-    '.sm-recall-pop .sm-recall-fill{position:absolute;left:0;top:3px;height:6px;border-radius:0;',
-    'width:var(--sm-fill,0%);background:var(--sm-rainbow);opacity:.9;',
-    'transition:width .22s cubic-bezier(.7,0,.2,1);box-shadow:0 0 6px rgba(154,208,255,.35);}',
-    '.sm-recall-pop .sm-recall-range{-webkit-appearance:none;appearance:none;position:relative;z-index:2;',
-    'width:220px;height:12px;margin:0;background:transparent;outline:none;cursor:pointer;}',
-    '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:12px;',
-    'background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 17px,rgba(10,13,26,.7) 17px 19px);}',
+    // 轨道：流星滑动条（照 Codex reasoning slider 结构，改星空配色）——深空细轨 + 青蓝→紫流星尾迹填充
+    // + 档位小星星 + 白色发光流星头（knob）；最高档（6）尾迹加扫光拖尾。交互层=透明 range 覆盖。
+    '.sm-recall-pop .sm-recall-track{position:relative;z-index:1;width:220px;height:14px;}',
+    '.sm-recall-pop .sm-recall-rail{position:absolute;left:0;right:0;top:5px;height:4px;border-radius:2px;',
+    'background:rgba(255,255,255,.12);}',
+    '.sm-recall-pop .sm-recall-fill{position:absolute;left:0;top:5px;height:4px;border-radius:2px;',
+    'width:var(--sm-fill,0%);',
+    'background:linear-gradient(90deg,rgba(110,182,255,.85),rgba(156,76,227,.95));',
+    'box-shadow:0 0 8px rgba(110,182,255,.45);',
+    'transition:width .18s cubic-bezier(.2,.8,.2,1);}',
+    // 最高档（6）：流星尾迹扫光拖尾（拖尾更炫）
+    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::after{content:"";position:absolute;inset:-4px -14px;',
+    'border-radius:4px;',
+    'background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.18) 45%,rgba(255,255,255,.42) 50%,rgba(255,255,255,.14) 60%,transparent 82%);',
+    'animation:sm-meteor-shimmer 2.4s ease-in-out infinite alternate;}',
+    '@keyframes sm-meteor-shimmer{from{transform:translateX(-30%)}to{transform:translateX(30%)}}',
+    // 档位小星星（0-6 共 7 个；passed=已点亮）
+    '.sm-recall-pop .sm-recall-dot{position:absolute;top:6px;left:calc(var(--sm-tick,0%) - 1.5px);',
+    'width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.32);pointer-events:none;',
+    'transition:background .18s ease,box-shadow .18s ease;}',
+    '.sm-recall-pop .sm-recall-dot.passed{background:#fff;box-shadow:0 0 5px rgba(156,200,255,.9);}',
+    // 流星头：白色发光核心 + 青紫光晕 + 小尾迹
+    '.sm-recall-pop .sm-recall-thumb{position:absolute;top:1px;left:calc(var(--sm-fill,0%) - 6px);',
+    'width:12px;height:12px;border-radius:50%;pointer-events:none;',
+    'background:radial-gradient(circle at 35% 35%,#fff 20%,#9CC8FF 65%,rgba(156,200,255,0) 100%);',
+    'box-shadow:0 0 12px rgba(156,200,255,.85),-8px 0 10px -4px rgba(156,76,227,.6);',
+    'transition:left .18s cubic-bezier(.2,.8,.2,1);}',
+    // 交互层：透明 range 覆盖（保留拖动/键盘/无障碍），视觉在下
+    '.sm-recall-pop .sm-recall-range{-webkit-appearance:none;appearance:none;position:absolute;inset:0;z-index:3;',
+    'width:220px;height:14px;margin:0;background:transparent;outline:none;cursor:pointer;opacity:0;}',
+    '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:14px;background:transparent;}',
     '.sm-recall-pop .sm-recall-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
-    'width:11px;height:11px;margin-top:-1px;border-radius:0;background:var(--sm-rainbow);',
-    'border:1px solid rgba(255,255,255,.8);',
-    'box-shadow:0 0 8px rgba(54,197,240,.9),7px 0 0 -2px rgba(255,95,109,.6),',
-    '14px 0 0 -4px rgba(255,195,113,.4),21px 0 0 -6px rgba(54,197,240,.25);}',
-    '.sm-recall-pop .sm-recall-range::-moz-range-track{height:12px;background:transparent;}',
-    '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:11px;height:11px;border-radius:0;',
-    'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.8);',
-    'box-shadow:0 0 8px rgba(54,197,240,.9);}',
+    'width:14px;height:14px;background:transparent;border:0;}',
+    '.sm-recall-pop .sm-recall-range::-moz-range-track{height:14px;background:transparent;}',
+    '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:14px;height:14px;background:transparent;border:0;}',
     '.sm-recall-pop .sm-recall-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
     // ②③ 拖动中：暂停星空/流星动画（省合成）+ 减淡填充发光（省重画），拖动更顺
     '.sm-recall-pop.is-sliding .sm-recall-stars,',
-    '.sm-recall-pop.is-sliding .sm-recall-meteor{animation-play-state:paused;}',
+    '.sm-recall-pop.is-sliding .sm-recall-meteor,',
+    '.sm-recall-pop.is-sliding .sm-recall-track.maxed .sm-recall-fill::after{animation-play-state:paused;}',
     '.sm-recall-pop.is-sliding .sm-recall-fill{box-shadow:none;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
     '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
-    '.sm-recall-pop .sm-recall-fill{transition:none;}}',
+    '.sm-recall-pop .sm-recall-fill{transition:none;}',
+    '.sm-recall-pop .sm-recall-track.maxed .sm-recall-fill::after{animation:none;}}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -473,8 +492,22 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
               h('span', { className: 'sm-n' }, 'No.' + pad(displayValue)),
               h('span', { className: 'sm-c' }, '/ 06'),
             ),
-            h('div', { className: 'sm-recall-track', style: { '--sm-fill': pct + '%' } },
+            h('div', {
+              className: 'sm-recall-track' + (displayValue === 6 ? ' maxed' : ''),
+              style: { '--sm-fill': pct + '%' },
+            },
+              // 流星滑动条视觉层：深空细轨 + 青蓝→紫流星尾迹填充 + 档位小星星 + 白色发光流星头。
+              // 交互仍由下方透明 range 接收（拖动/键盘/无障碍零改动，onSlide 本地回显不变）。
+              h('div', { className: 'sm-recall-rail' }),
               h('div', { className: 'sm-recall-fill' }),
+              Array.from({ length: 7 }, function (_, i) {
+                return h('i', {
+                  key: i,
+                  className: 'sm-recall-dot' + (i <= displayValue ? ' passed' : ''),
+                  style: { '--sm-tick': (i / 6 * 100) + '%' },
+                })
+              }),
+              h('div', { className: 'sm-recall-thumb' }),
               h('input', {
                 className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
                 value: displayValue, disabled: disabled, onChange: onSlide,
