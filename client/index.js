@@ -46,6 +46,12 @@
 //   v1.2.18（本版）：图层修复（StarMemory-弹窗布局与动效结构.md §三）——星点/流星 z-index:-1 → 0
 //   （原被 MenuSurface 不透明深空背景 .material 盖住，动效在跑但看不见）；内容元素（head/num/track/err）
 //   加 position:relative; z-index:1（确保在星点/流星之上）。动画本就在，图层顺序对即可见。
+//   v1.2.21（本版）：召回滑块 1:1 复刻 Codex reasoning slider（bakabaicai/DSH-Codex-
+//   reasoning-effort-slider）——几何/尺寸全照抄（轨道高 26px 圆角 16px、填充左圆角右直角宽
+//   calc((100%-30px)*pos+15px)、手柄 30px 圆、刻度点 4px、弹窗 272px），配色改星空（深空轨道 +
+//   青蓝→紫尾迹 + 星空光晕手柄）；加 Codex canvas 粒子（20 种子点 rAF 漂移 + 最高档流动）与进
+//   最高档（6）紫色爆开，最高档尾迹发光（blur 渐变）+ 扫光。交互仍走透明 range（本地回显 /
+//   is-sliding 暂停粒子 / prefers-reduced-motion 保留）。
 //   v1.2.20（本版）：点击延迟优化（流畅优先）——① 设置面板（settings.section）开关/档位
 //   按钮点击走 configForms commit 往返才更新 UI（无本地回显 → 点击后高亮延迟）。修法：本地回显
 //   （localRef 存乐观值 {enabled,effort}，点击立即 setLocal 切换 UI，commit 后台写；state 追上后清
