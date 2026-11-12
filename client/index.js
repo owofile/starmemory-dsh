@@ -46,6 +46,10 @@
 //   v1.2.18（本版）：图层修复（StarMemory-弹窗布局与动效结构.md §三）——星点/流星 z-index:-1 → 0
 //   （原被 MenuSurface 不透明深空背景 .material 盖住，动效在跑但看不见）；内容元素（head/num/track/err）
 //   加 position:relative; z-index:1（确保在星点/流星之上）。动画本就在，图层顺序对即可见。
+//   v1.2.22（本版）：滑块回弹竞态修复（race condition）——onSlide 停 250ms commit 时立即清 localRef，
+//   displayValue 回落到未更新的旧 store 值 → 弹回旧值。修法：commit 时**不清 localRef**，改
+//   useEffect([shown]) 等 store 值真正追上本地值才清（与设置面板同模式）；另修复拖动时流星/星星/
+//   扫光被 is-sliding 暂停的问题（用户要求背景动效滑动时继续），只保留填充宽度无过渡跟手。
 //   v1.2.21（本版）：召回滑块 1:1 复刻 Codex reasoning slider（bakabaicai/DSH-Codex-
 //   reasoning-effort-slider）——几何/尺寸全照抄（轨道高 26px 圆角 16px、填充左圆角右直角宽
 //   calc((100%-30px)*pos+15px)、手柄 30px 圆、刻度点 4px、弹窗 272px），配色改星空（深空轨道 +
@@ -297,10 +301,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '.sm-recall-pop .sm-recall-range::-moz-range-track{height:26px;background:transparent;}',
     '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:26px;height:26px;background:transparent;border:0;}',
     '.sm-recall-pop .sm-recall-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
-    // ②③ 拖动中：暂停星空/流星/扫光动画（省合成）+ 粒子流动在 JS 里已暂停（sliding），拖动更顺
-    '.sm-recall-pop.is-sliding .sm-recall-stars,',
-    '.sm-recall-pop.is-sliding .sm-recall-meteor,',
-    '.sm-recall-pop.is-sliding .sm-recall-fill::before{animation-play-state:paused;}',
+    // ② 拖动中：只禁填充宽度过渡（更跟手），**不暂停流星/星星/扫光**（用户要求背景动效滑动时继续）；
+    // 粒子流动在 JS 里已暂停（sliding）保性能。
+    '.sm-recall-pop.is-sliding .sm-recall-fill{transition:none;}',
     '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-stars{animation:none;}',
     '.sm-recall-pop .sm-recall-meteor{animation:none;opacity:0;}',
     '.sm-recall-pop .sm-recall-fill{transition:none;}',
@@ -521,8 +524,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         localRef.current = v
         setLocal(v)
         if (timerRef.current) clearTimeout(timerRef.current)
-        // 停止 250ms 后才 commit（完整往返），并清除本地回显（回落 store 值）
-        timerRef.current = setTimeout(function () { onLevel(v); localRef.current = null }, 250)
+        // ② 停止 250ms 后 commit（完整往返）。**不清 localRef**：等 store 值（shown）追上本地值才清
+        // （见下方 effect），否则 displayValue 回落到未更新的旧 store 值 → 回弹竞态。
+        timerRef.current = setTimeout(function () { onLevel(v) }, 250)
       }
 
       var disabled = state.status !== 'ready' || !state.writable
@@ -531,6 +535,14 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
       var displayValue = localRef.current !== null ? localRef.current : shown
       var pos = displayValue / 6
       latestRef.current = { open: open, ultra: displayValue === 6, sliding: localRef.current !== null }
+      // ② 回弹治本（竞态）：commit 发出时不清 localRef（见 onSlide），等 store 值（shown）真正追上
+      // 本地值才清——否则 displayValue 回落到未更新的旧 store 值 → 滑块弹回旧值。
+      React.useEffect(function () {
+        if (localRef.current !== null && shown === localRef.current) {
+          localRef.current = null
+          setLocal(null)
+        }
+      }, [shown])
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
       // 定位：弃 CSS anchor positioning（Chrome 125+ 新特性、行为不稳），改用 DSH 自带 useAnchoredPosition
       // （ModelSelect 同款：自动算位 + 视口不够自动翻转）。side:'top' = 弹窗在触发器上方（输入框在窗口底部）。
