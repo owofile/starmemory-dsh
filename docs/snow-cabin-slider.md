@@ -1,4 +1,14 @@
-# 雪夜山小屋滑块集成设计（v1.2.24 预研，重构版）
+# 雪夜山小屋滑块集成设计（v1.2.25 预研，修复版）
+
+## v1.2.24 的 bug（用户反馈，本版修复）
+- **尺寸巨大无比**：`--sm-cabin-w` CSS 变量驱动宽度，变量解析失败（无效值）时 CSS 会**回退到原作基础规则** `width:min(100%,max(200px,(100vh-176px)*1.64))`，视口一大就失控。**修复**：宽度/高度改用**直接 inline style**（不经 CSS 变量），并 clamp 到 [200,400]px 防御。
+- **根本拖不动**：原作 `.hit` 交互层绑在 WebGL 内部，弹窗层级/尺寸下事件被拦截、不可靠。**修复**：雪屋纯做**背景渲染**（`setProgress` 驱动叙事），交互改由**透明 range 覆盖整个雪屋**（`inset:0;opacity:0`）——视觉上就是拖动雪屋调档，标准拖动/键盘/无障碍全可靠。
+
+## 最终架构（本版）
+- 雪屋容器：inline `width/height`（width=设置项 clamp[200,400]，height=width/1.85），`.hit` `pointer-events:none`（原作 WebGL 交互禁用）。
+- 透明 range：`.sm-recall-range` 覆盖雪屋（`position:absolute;inset:0;opacity:0`），`onChange` 即时 `setLocal + setProgress(v)`（雪屋叙事跟手），250ms 防抖 `onLevel(v)` 提交。
+- 雪屋 mount：`smSnowCabinMount(el)` 纯渲染，`setProgress` 驱动 x；原作内部 `drag` 永不触发（`.hit` 禁指针）。
+- 档位文字在雪屋上方（`sm-recall-effort`，颜色随档位）。
 
 ## 来源与协议
 - 作品：雪の夜の山小屋（Snow Night Mountain Cabin），作者 @Lattice_Node，ludion.ai/p/toggle-snow-cabin

@@ -283,13 +283,20 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '@media (prefers-reduced-motion: reduce){[data-ld-part="toggle-snow-cabin"] .hit:focus-visible{transition:none;}}',
     // 弹窗内：雪屋=滑块本体，宽度由设置项驱动（--sm-cabin-w），高度=宽度/1.85；星空色板覆盖（--ld-*）。
     // .hit 覆盖整个雪屋药丸（可拖动调档），恢复指针交互（原作 .hit 定位针对 1.32 倍容器，这里容器=药丸）。
-    '.sm-recall-pop .sm-snow-cabin{position:relative;z-index:1;width:var(--sm-cabin-w,250px);',
-    'height:calc(var(--sm-cabin-w,250px)/1.85);margin:0 auto;',
+    '.sm-recall-pop .sm-snow-cabin{position:relative;z-index:1;margin:0 auto;',
     '--ld-bg:#dfe8f8;--ld-surface:#1f3a4a;--ld-fg:#10162e;--ld-muted:#5a6f9a;--ld-accent:#f6a94a;',
     '--ld-wood:123 86 69;--ld-radius:14px;--ld-shadow:0 8px 24px rgba(4,6,20,.5);}',
-    '.sm-recall-pop .sm-snow-cabin .hit{top:0;left:0;width:100%;height:100%;pointer-events:auto;cursor:grab;}',
-    '.sm-recall-pop .sm-snow-cabin .hit:active{cursor:grabbing;}',
-    '.sm-recall-pop .sm-snow-cabin .hit:focus{outline:none;}',
+    // .hit 禁交互（原作 WebGL 层拖动不可靠），交互由透明 range 覆盖（标准拖动/键盘）
+    '.sm-recall-pop .sm-snow-cabin .hit{top:0;left:0;width:100%;height:100%;pointer-events:none;cursor:default;}',
+    // 透明 range：覆盖整个雪屋（inset:0），视觉上是拖动雪屋调档；标准拖动/键盘/无障碍
+    '.sm-recall-pop .sm-snow-cabin .sm-recall-range{-webkit-appearance:none;appearance:none;position:absolute;',
+    'inset:0;z-index:3;width:100%;height:100%;margin:0;background:transparent;outline:none;cursor:pointer;',
+    'opacity:0;touch-action:none;}',
+    '.sm-recall-pop .sm-snow-cabin .sm-recall-range::-webkit-slider-runnable-track{height:100%;background:transparent;}',
+    '.sm-recall-pop .sm-snow-cabin .sm-recall-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
+    'width:100%;height:100%;background:transparent;border:0;}',
+    '.sm-recall-pop .sm-snow-cabin .sm-recall-range::-moz-range-track{height:100%;background:transparent;}',
+    '.sm-recall-pop .sm-snow-cabin .sm-recall-range::-moz-range-thumb{width:100%;height:100%;background:transparent;border:0;}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -441,6 +448,15 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         if (v === 0) doCommit([{ key: 'recallEffort', value: 0 }, { key: 'recallEnabled', value: false }])
         else doCommit([{ key: 'recallEffort', value: v }, { key: 'recallEnabled', value: true }])
       }
+      // range 拖动：即时回显 + setProgress 驱动雪屋叙事（跟手）；停止 250ms 后 commit（完整往返）。
+      function onSlide(e) {
+        var v = Number(e.target.value) || 0
+        localRef.current = v
+        setLocal(v)
+        if (cabinRef.current && cabinRef.current.setProgress) cabinRef.current.setProgress(v)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(function () { onLevel(v) }, 250)
+      }
 
       var disabled = state.status !== 'ready' || !state.writable
       var shown = state.enabled ? state.effort : 0
@@ -466,19 +482,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         var el = cabinElRef.current
         if (!el) return
         if (!cabinRef.current) {
-          cabinRef.current = smSnowCabinMount(el, {
-            onInput: function (lv) {
-              localRef.current = lv
-              setLocal(lv)
-            },
-            onCommit: function (lv) {
-              // 同步本地值到最终吸附档（onInput 末档可能≠onCommit 档），
-              // 否则 store 追上时 shown===localRef 不成立 → 显示值卡在拖动档。
-              localRef.current = lv
-              setLocal(lv)
-              onLevel(lv)
-            },
-          })
+          // 雪屋纯背景渲染：交互由弹窗透明 range 负责（标准拖动/键盘/无障碍）。
+          // 原作 .hit pointer-events:none → 内部 drag/commit 不触发，x 仅由 setProgress 驱动。
+          cabinRef.current = smSnowCabinMount(el)
         }
         if (cabinRef.current && cabinRef.current.setProgress) cabinRef.current.setProgress(shown)
         return function () {
@@ -526,17 +532,27 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
               className: 'sm-snow-cabin',
               'data-ld-part': 'toggle-snow-cabin',
               lang: 'ja',
-              style: { '--sm-cabin-w': state.width + 'px' },
+              // 尺寸直接 inline（不经 CSS 变量）：杜绝 --sm-cabin-w 解析失败回退基础规则导致尺寸失控。
+              // 防御：width 无效/超范围时 clamp 到 [200,400]，杜绝巨大。
+              style: (function () {
+                var w = Math.max(200, Math.min(400, Number(state.width) || 250))
+                return { width: w + 'px', height: Math.round(w / 1.85) + 'px' }
+              })(),
               ref: function (node) { cabinElRef.current = node },
             },
               h('canvas', { className: 'scene', 'aria-hidden': 'true' }),
               h('button', {
                 className: 'hit', type: 'button', role: 'slider',
                 'aria-valuemin': '0', 'aria-valuemax': '6', 'aria-valuenow': String(displayValue),
-                'aria-label': 'Recall effort slider', 'aria-orientation': 'horizontal',
+                'aria-label': 'Recall effort slider', 'aria-orientation': 'horizontal', tabIndex: -1,
               }),
               h('span', { className: 'vh', role: 'status', 'aria-live': 'polite', 'data-status': '' }),
               h('span', { className: 'probe', 'aria-hidden': 'true' }),
+              // 交互层：透明 range 覆盖整个雪屋（视觉上就是拖动雪屋调档），标准拖动/键盘/无障碍。
+              h('input', {
+                className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
+                value: displayValue, disabled: disabled, onChange: onSlide,
+              }),
             ),
             errValue ? h('span', { className: 'sm-recall-err' }, errValue) : null,
           ),
