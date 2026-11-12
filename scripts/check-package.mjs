@@ -91,6 +91,13 @@ if (!dci.includes('@deepseek-ai/dsh-client-ui-settings')) {
   errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-settings" (declares settings.section; missing -> slot has no consumer -> panel never renders)')
 }
 
+// 6b. dsh.client.inject 必须注入 conversation.input.right 槽的声明者 @deepseek-ai/dsh-client-ui-conversation
+//    （v1.2.15：召回触发器挂 composer 子槽；该包声明 composer bar 全部子槽，不注入则槽无消费者——
+//     注册成功但永不渲染，输入框右下角无「召回」）。
+if (!dci.includes('@deepseek-ai/dsh-client-ui-conversation')) {
+  errors.push('dsh.client.inject must include "@deepseek-ai/dsh-client-ui-conversation" (declares conversation.input.right; missing -> slot has no consumer -> trigger never renders)')
+}
+
 // 7. dsh.client.inject 必须注入 @deepseek-ai/dsh-client-ui-renderer + @deepseek-ai/dsh-client-ui-layout
 //    （UI 基础设施包：渲染器与布局所在；缺失则设置面板不渲染）。
 if (!dci.includes('@deepseek-ai/dsh-client-ui-renderer')) {
@@ -104,6 +111,12 @@ if (!dci.includes('@deepseek-ai/dsh-client-ui-layout')) {
 //    详情页卡片已移除——那是设计错位）。
 if (!clientSrc.includes('settings.section')) {
   errors.push('client/index.js must register "settings.section" (main settings panel; plugins.bundle.config detail card removed)')
+}
+
+// 8b. client 源码必须注册 conversation.input.right（v1.2.15：召回触发器挂 composer 子槽，输入框右下角；
+//    照 ModelSelect 姿势 trigger + createPortal(MenuSurface)，不再用 shell.overlay fixed 浮层）。
+if (!clientSrc.includes('conversation.input.right')) {
+  errors.push('client/index.js must register "conversation.input.right" (recall trigger at composer bottom-right; shell.overlay fixed overlay removed)')
 }
 
 if (errors.length) {

@@ -12,7 +12,9 @@
 // 结构：__ModuleLoader__.load 包裹 → factory(require) → inject ['slots']（client 侧实测：多服务整批失败，
 //  只 inject 确定能用的 slots；configForms 经 ctx.inject 回调拿，locale 单独回调最佳努力）
 //   → 注册两个 slot（各自独立 try/catch，白屏红线）：
-//     - shell.overlay  聊天区召回滑块（fixed 右上角；unavailable/关闭 → 消失）
+//     - conversation.input.right  聊天输入框右下角召回触发器（「召回」文字 + 点击向上弹出滑块小模块；
+//       照 ui-model-selection ModelSelect 姿势：trigger + createPortal(MenuSurface) + CSS anchor 向上定位；
+//       unavailable → 控件禁用；弹出带 Menu 原语淡入/淡出动效）
 //     - settings.section  主设置页独立分区（召回 Switch + 0-6 档位按钮；id=包名；bili-scroll「刷B站」姿势）
 //   数据源：configForms.get('starmemory-dsh') scope —— 单一事实源（Config volatile 叶）。
 //   v1.2.7：两个 slot 均无条件注册（不 gate 在 configForms 可用性/whileServed）——
@@ -24,20 +26,25 @@
 //   v1.2.12（照抄 nekowhale 整套姿势，bug #8 收尾）：详情页卡片在 0.2.2-rc.1 能显示（plugins.bundle.config），
 //   但那是设计错位——主人要的是主设置页独立分区，不是插件详情页小卡片。
 //   v1.2.13（本版）：移除插件详情页卡片（plugins.bundle.config + createCard），改注册 settings.section
-//   主设置页面板（createSection，Switch + 0-6 档位），数据仍走 configForms scope，与 shell.overlay 滑块同源。
+//   主设置页面板（createSection，Switch + 0-6 档位），数据仍走 configForms scope，与聊天区滑块同源。
 //   v1.2.14（本版）：首次配置死锁修复——host 未 served namespace 时 status==='unavailable'、控件 disabled、
 //   无法写入（死锁）。createSection 加 useEffect：unavailable 时用 scope.mutate（op:'set' 框架形状）写默认值
 //   {recallEnabled:false, recallEffort:0}（commit 会补 recallPanelConfigured:true），host served → status ready
 //   → 解锁。同时修 makeCommit 的 ops 形状 type:'set' → op:'set'（与 nekowhale 一致，否则写入失败）。
+//   v1.2.15（本版）：聊天区滑块（shell.overlay fixed 右上角）改为聊天输入框右下角召回触发器（composer 子槽
+//   conversation.input.right），照 ModelSelect 姿势（trigger「召回」+ createPortal(MenuSurface) + CSS anchor
+//   向上弹出），Menu 原语淡入/淡出动效；数据仍走 configForms scope，与 settings.section 面板同源。
 //   i18n（v1.2.5）：文案走客户端字典 DICTS（08-i18n §1），locale 服务缺席/缺键回退中文。
 
 window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require) {
   'use strict'
 
   var React = require('react')
+  var ReactDOM = require('react-dom')
   var h = React.createElement
   var primitives = require('@deepseek-ai/dsh-client-ui-primitives')
   var Switch = primitives.Switch
+  var MenuSurface = primitives.MenuSurface
 
   var NS = 'starmemory-dsh'
   var PKG = 'starmemory-dsh'
@@ -151,54 +158,52 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     // 出错 = 黄块提示（终末地：错误不用红，红只给删除）
     '.sm-ef-card .sm-err{display:inline-block;padding:4px 8px;font-size:12px;font-weight:600;',
     'color:var(--ef-onSignal);background:var(--ef-signal);}',
-    // ---- 滑块：深色命令栏（两主题都深）+ 保留彩虹/发光/循环流星 ----
-    '.sm-ef-slider{--ef-ink:#EDEDED;--ef-ink2:#A3A3A3;--ef-rule:#353535;--ef-cut:10px;',
-    '--sm-rainbow:' + RAINBOW + ';position:fixed;top:16px;right:16px;z-index:9999;display:flex;align-items:center;',
-    'gap:12px;padding:10px 14px;background:#161616;border:1px solid var(--ef-rule);border-radius:0;',
-    'clip-path:polygon(0 0,100% 0,100% calc(100% - var(--ef-cut)),calc(100% - var(--ef-cut)) 100%,0 100%);',
-    'overflow:hidden;}',
-    '.sm-ef-slider .sm-stars{position:absolute;inset:0;pointer-events:none;z-index:0;}',
-    '.sm-ef-slider .sm-stars::before{content:"";position:absolute;width:2px;height:2px;background:#fff;',
-    'box-shadow:12px 9px 0 0 rgba(255,255,255,.9),34px 22px 0 0 rgba(255,255,255,.6),55px 6px 0 0 rgba(255,255,255,.4),',
-    '78px 26px 0 0 rgba(255,255,255,.8),100px 12px 0 0 rgba(255,255,255,.5),122px 30px 0 0 rgba(255,255,255,.45),',
-    '148px 8px 0 0 rgba(255,255,255,.7),168px 24px 0 0 rgba(255,255,255,.3),190px 14px 0 0 rgba(255,255,255,.6),',
-    '210px 30px 0 0 rgba(255,255,255,.8),60px 34px 0 0 rgba(255,255,255,.3),135px 2px 0 0 rgba(255,255,255,.4),',
-    '88px 2px 0 0 rgba(255,255,255,.25),180px 3px 0 0 rgba(255,255,255,.4),20px 30px 0 0 rgba(255,255,255,.25);}',
-    // 循环流星划痕（用户指定保留；终端地规则例外）
-    '.sm-ef-slider .sm-streak{position:absolute;top:9px;left:0;width:46px;height:2px;z-index:0;',
-    'background:linear-gradient(90deg,transparent,#ffc371,#36c5f0,transparent);opacity:0;',
-    'animation:sm-shoot 7s linear infinite;pointer-events:none;}',
-    '@keyframes sm-shoot{0%{transform:translateX(-60px);opacity:0}5%{opacity:.85}45%{opacity:.6}',
-    '60%{transform:translateX(240px);opacity:0}100%{transform:translateX(240px);opacity:0}}',
-    // 眉标 + 数字（真实档位）
-    '.sm-ef-slider .sm-eyebrow{position:relative;z-index:1;display:flex;flex-direction:column;line-height:1.25;}',
-    '.sm-ef-slider .sm-eyebrow .sm-en{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ef-ink2);}',
-    '.sm-ef-slider .sm-eyebrow .sm-zh{font-size:14px;font-weight:700;color:var(--ef-ink);}',
-    '.sm-ef-slider .sm-num{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;}',
-    '.sm-ef-slider .sm-num .sm-n{font-size:19px;font-weight:700;color:var(--ef-ink);}',
-    '.sm-ef-slider .sm-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ef-ink2);}',
-    // 轨道：暗底像素分格 + 彩虹填充层（保留）+ 原生滑头（彩虹发光，保留）
-    '.sm-ef-slider .sm-sliderwrap{position:relative;z-index:1;width:132px;height:12px;}',
-    '.sm-ef-slider .sm-track{position:absolute;left:0;right:0;top:3px;height:6px;border-radius:0;',
-    'background:repeating-linear-gradient(90deg,#2E2E2E 0 17px,rgba(0,0,0,.5) 17px 19px);}',
-    '.sm-ef-slider .sm-fill{position:absolute;left:0;top:3px;height:6px;border-radius:0;',
+    // ---- 召回触发器（composer 右下角，照 ui-model-selection ModelSelect trigger）----
+    '.sm-recall{position:relative;min-width:0;}',
+    '.sm-recall-trigger{anchor-name:var(--sm-recall-anchor);display:flex;align-items:center;gap:4px;',
+    'height:28px;padding:0 8px;border:0;border-radius:8px;outline:none;background:transparent;',
+    'color:var(--dsw-alias-label-secondary,#5C5C5C);font-size:13px;line-height:20px;font-weight:400;cursor:pointer;}',
+    '.sm-recall-trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.16));}',
+    '.sm-recall-trigger:disabled{color:var(--dsw-alias-label-dimmed,#8A8A8A);cursor:default;}',
+    // 下拉箭头（纯 CSS，点击翻转 120ms，照 ModelSelect .chevronOpen rotate 180）
+    '.sm-recall-caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;',
+    'border-top:5px solid var(--dsw-alias-label-caption,#8A8A8A);transition:transform 120ms ease;}',
+    '.sm-recall-caret.is-open{transform:rotate(180deg);}',
+    // 弹出菜单（照 ModelSelect .menu：CSS anchor 向上定位；材质由 MenuSurface 提供，阴影/边框靠本类）
+    '.sm-recall-pop{position:fixed;position-anchor:var(--sm-recall-anchor);',
+    'top:max(12px,var(--dsh-frame-overlay-top,12px));left:12px;right:anchor(right);',
+    'bottom:calc(anchor(top)+8px);align-self:safe end;justify-self:safe end;margin:0;z-index:1100;',
+    'display:flex;flex-direction:column;gap:10px;width:fit-content;height:fit-content;',
+    'min-width:220px;max-width:min(320px,calc(100vw - 24px));padding:12px 14px;box-sizing:border-box;',
+    'overflow:hidden;color:var(--dsw-alias-label-primary,#161616);border:0;',
+    '--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);}',
+    '.sm-recall-pop .sm-recall-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}',
+    '.sm-recall-pop .sm-recall-en{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;',
+    'color:var(--dsw-alias-label-caption,#8A8A8A);}',
+    '.sm-recall-pop .sm-recall-num{display:flex;align-items:baseline;gap:4px;}',
+    '.sm-recall-pop .sm-recall-num .sm-n{font-size:19px;font-weight:700;color:var(--dsw-alias-label-primary,#161616);}',
+    '.sm-recall-pop .sm-recall-num .sm-c{font-size:10px;letter-spacing:.1em;text-transform:uppercase;',
+    'color:var(--dsw-alias-label-caption,#8A8A8A);}',
+    // 轨道：暗底像素分格 + 彩虹填充（保留）+ 原生滑头（彩虹发光，保留）
+    '.sm-recall-pop .sm-recall-track{position:relative;width:220px;height:12px;}',
+    '.sm-recall-pop .sm-recall-fill{position:absolute;left:0;top:3px;height:6px;border-radius:0;',
     'width:var(--sm-fill,0%);background:var(--sm-rainbow);opacity:.85;',
     'transition:width .22s cubic-bezier(.7,0,.2,1);}',
-    '.sm-ef-slider .sm-range{-webkit-appearance:none;appearance:none;position:relative;z-index:2;',
-    'width:132px;height:12px;margin:0;background:transparent;outline:none;cursor:pointer;}',
-    '.sm-ef-slider .sm-range::-webkit-slider-runnable-track{height:12px;background:transparent;}',
-    '.sm-ef-slider .sm-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
+    '.sm-recall-pop .sm-recall-range{-webkit-appearance:none;appearance:none;position:relative;z-index:2;',
+    'width:220px;height:12px;margin:0;background:transparent;outline:none;cursor:pointer;}',
+    '.sm-recall-pop .sm-recall-range::-webkit-slider-runnable-track{height:12px;',
+    'background:repeating-linear-gradient(90deg,#2E2E2E 0 17px,rgba(0,0,0,.5) 17px 19px);}',
+    '.sm-recall-pop .sm-recall-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
     'width:11px;height:11px;margin-top:-1px;border-radius:0;background:var(--sm-rainbow);',
     'border:1px solid rgba(255,255,255,.75);',
     'box-shadow:0 0 8px rgba(54,197,240,.9),7px 0 0 -2px rgba(255,95,109,.6),',
     '14px 0 0 -4px rgba(255,195,113,.4),21px 0 0 -6px rgba(54,197,240,.25);}',
-    '.sm-ef-slider .sm-range::-moz-range-track{height:12px;background:transparent;}',
-    '.sm-ef-slider .sm-range::-moz-range-thumb{width:11px;height:11px;border-radius:0;',
+    '.sm-recall-pop .sm-recall-range::-moz-range-track{height:12px;background:transparent;}',
+    '.sm-recall-pop .sm-recall-range::-moz-range-thumb{width:11px;height:11px;border-radius:0;',
     'background:var(--sm-rainbow);border:1px solid rgba(255,255,255,.75);',
     'box-shadow:0 0 8px rgba(54,197,240,.9);}',
-    '.sm-ef-slider .sm-err{position:relative;z-index:1;font-size:11px;font-weight:600;color:#FFFA00;}',
-    '@media (prefers-reduced-motion: reduce){.sm-ef-slider .sm-streak{animation:none;opacity:0;}',
-    '.sm-ef-slider .sm-fill{transition:none;}}',
+    '.sm-recall-pop .sm-recall-err{font-size:11px;font-weight:600;color:#FFFA00;}',
+    '@media (prefers-reduced-motion: reduce){.sm-recall-pop .sm-recall-fill{transition:none;}}',
   ].join('')
 
   function ensureStyle(id, css) {
@@ -295,69 +300,109 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     }
   }
 
-  // ================= 聊天区召回滑块（shell.overlay）：工业命令栏 + 彩虹流星 =================
-  function createSlider(bridge, commit, t) {
-    return function RecallSlider() {
+  // ================= 聊天输入框召回触发器（conversation.input.right）：照 ui-model-selection ModelSelect =================
+  // 「召回」文字 trigger + 点击 createPortal(MenuSurface) 向上弹出滑块小模块。
+  // 数据仍走 configForms scope（bridge/commit），与 settings.section 面板同源。
+  // 动效：MenuSurface phase='enter'/'dismiss'（Menu 原语淡入/淡出，CSS 驱动）。
+  // trigger 始终可点（首次 unavailable 时打开即写默认值解锁，见 onClick）。
+  function createRecallTrigger(bridge, commit, t) {
+    return function RecallComposerTrigger() {
       var state = React.useSyncExternalStore(bridge.subscribe, bridge.getSnapshot)
-      var local = React.useState(null)
-      var err = React.useState('')
-      var timer = React.useRef(null)
-      var dragValue = local[0], setDrag = local[1]
-      var errValue = err[0], setErr = err[1]
+      var openState = React.useState(false)
+      var phaseState = React.useState(null)
+      var errState = React.useState('')
+      var timerRef = React.useRef(null)
+      var rootRef = React.useRef(null)
+      var menuRef = React.useRef(null)
+      var open = openState[0], setOpen = openState[1]
+      var phase = phaseState[0], setPhase = phaseState[1]
+      var errValue = errState[0], setErr = errState[1]
+      var id = React.useId ? React.useId() : 'sm-recall'
 
       React.useEffect(function () { ensureStyle('sm-ef-style', EF_CSS) }, [])
 
-      if (state.status === 'unavailable') return null
-      if (!state.enabled) return null
-
-      function doCommit(v) {
-        if (timer.current) { clearTimeout(timer.current); timer.current = null }
-        var res = v === 0
-          ? commit([{ key: 'recallEffort', value: 0 }, { key: 'recallEnabled', value: false }])
-          : commit([{ key: 'recallEffort', value: v }])
-        setErr(res || '')
+      function close() {
+        setPhase('dismiss')
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(function () { setOpen(false); setPhase(null) }, 80)
       }
-      function onChange(e) {
+      // 外部点击关闭（照 ModelSelect：portaled 卡片在 trigger 子树外，需查两者）
+      React.useEffect(function () {
+        if (!open) return
+        function closeOutside(e) {
+          if (rootRef.current && rootRef.current.contains(e.target)) return
+          if (menuRef.current && menuRef.current.contains(e.target)) return
+          close()
+        }
+        document.addEventListener('mousedown', closeOutside)
+        return function () { document.removeEventListener('mousedown', closeOutside) }
+      }, [open])
+
+      function doCommit(v) { setErr(commit(v) || '') }
+      function onToggle(next) { doCommit([{ key: 'recallEnabled', value: !!next }]) }
+      function onLevel(v) {
+        if (v === 0) doCommit([{ key: 'recallEffort', value: 0 }, { key: 'recallEnabled', value: false }])
+        else doCommit([{ key: 'recallEffort', value: v }, { key: 'recallEnabled', value: true }])
+      }
+      function onSlide(e) {
         var v = Number(e.target.value) || 0
-        setDrag(v)
-        if (timer.current) clearTimeout(timer.current)
-        timer.current = setTimeout(function () { doCommit(v) }, 250)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(function () { onLevel(v) }, 250)
       }
 
-      var shown = dragValue === null ? state.effort : dragValue
+      var disabled = state.status !== 'ready' || !state.writable
+      var shown = state.enabled ? state.effort : 0
       var pct = (shown / 6) * 100
       var pad = function (n) { return (n < 10 ? '0' : '') + n }
-      // 关键视觉内联（13-gotchas §4：宿主可能清理/覆盖注入 style，内联优先级最高）。
-      // 定位/布局/配色/token 内联承载，style 被清时 UI 降级而非错位/消失；
-      // 仅伪元素（星点/thumb/划痕动画）留 style 注入（伪元素无法内联）。
-      return h('div', { className: 'sm-ef sm-ef-slider', style: {
-        position: 'fixed', top: 'var(--dsh-frame-overlay-top, 16px)', right: 16, zIndex: 9999,
-        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-        background: '#161616', border: '1px solid #353535', borderRadius: 0,
-        clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)',
-        overflow: 'hidden',
-        '--ef-ink': '#EDEDED', '--ef-ink2': '#A3A3A3', '--ef-rule': '#353535', '--ef-cut': '10px',
-        '--sm-rainbow': RAINBOW, '--sm-fill': pct + '%',
-      } },
-        h('div', { className: 'sm-stars' }),
-        h('div', { className: 'sm-streak' }),
-        h('div', { className: 'sm-eyebrow' },
-          h('span', { className: 'sm-en' }, '// RECALL'),
-          h('span', { className: 'sm-zh' }, t('slider.title')),
+      var anchorStyle = { '--sm-recall-anchor': '--sm-recall-' + id.replace(/:/g, '') }
+
+      var pop = null
+      if (open) {
+        pop = ReactDOM.createPortal(
+          h(MenuSurface, {
+            ref: menuRef, className: 'sm-ef sm-recall-pop', style: anchorStyle,
+            phase: phase, role: 'menu', 'aria-label': t('slider.title'),
+          },
+            h('div', { className: 'sm-recall-head' },
+              h('span', { className: 'sm-recall-en' }, '// RECALL'),
+              Switch({ checked: state.enabled, onChange: onToggle, label: t('card.autoRecall'), disabled: disabled }),
+            ),
+            h('div', { className: 'sm-recall-num' },
+              h('span', { className: 'sm-n' }, 'No.' + pad(shown)),
+              h('span', { className: 'sm-c' }, '/ 06'),
+            ),
+            h('div', { className: 'sm-recall-track', style: { '--sm-rainbow': RAINBOW, '--sm-fill': pct + '%' } },
+              h('div', { className: 'sm-recall-fill' }),
+              h('input', {
+                className: 'sm-recall-range', type: 'range', min: 0, max: 6, step: 1,
+                value: shown, disabled: disabled, onChange: onSlide,
+              }),
+            ),
+            errValue ? h('span', { className: 'sm-recall-err' }, errValue) : null,
+          ),
+          document.body,
+        )
+      }
+
+      return h('div', { ref: rootRef, className: 'sm-ef sm-recall' },
+        h('button', {
+          type: 'button', className: 'sm-recall-trigger', style: anchorStyle,
+          'aria-haspopup': 'menu', 'aria-expanded': open ? 'true' : 'false',
+          onClick: function () {
+            // 取消残留的 close/dismiss timer，避免「关闭动画中快速重开」被旧 timer 误关
+            if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+            if (open) { close(); return }
+            // 首次未配置（unavailable）打开即写默认值解锁（host served → status ready → 控件可点）
+            if (state.status === 'unavailable') {
+              try { commit([{ key: 'recallEnabled', value: false }, { key: 'recallEffort', value: 0 }]) } catch (e) {}
+            }
+            setOpen(true); setPhase('enter')
+          },
+        },
+          h('span', { className: 'sm-recall-label' }, t('slider.title')),
+          h('span', { className: 'sm-recall-caret' + (open ? ' is-open' : '') }),
         ),
-        h('div', { className: 'sm-num' },
-          h('span', { className: 'sm-n' }, 'No.' + pad(shown)),
-          h('span', { className: 'sm-c' }, '/ 06'),
-        ),
-        h('div', { className: 'sm-sliderwrap' },
-          h('div', { className: 'sm-track' }),
-          h('div', { className: 'sm-fill' }),
-          h('input', {
-            className: 'sm-range', type: 'range', min: 0, max: 6, step: 1, value: shown,
-            onChange: onChange,
-          }),
-        ),
-        errValue ? h('span', { className: 'sm-err' }, errValue) : null,
+        pop,
       )
     }
   }
@@ -492,21 +537,21 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
           if (!scope || typeof scope.getSnapshot !== 'function') {
             console.warn('[starmemory] configForms scope unavailable; panel/slider show degraded state')
           }
-          // settings.section / shell.overlay 组件都经闭包拿 bridge/commit（configForms scope 单一事实源），
+          // settings.section / conversation.input.right 组件都经闭包拿 bridge/commit（configForms scope 单一事实源），
           // 无需 inject:()=>face（那是 plugins.bundle.config 的宿主展开姿势，本版已移除详情页卡片）。
           var bridge = createScopeBridge(scope)
           var commit = makeCommit(scope, t)
 
           try {
-            slots.inject('shell.overlay', function () {
+            slots.inject('conversation.input.right', function () {
               return slots.register(
-                { name: 'shell.overlay', id: 'starmemory-recall-slider', order: 100, label: function () { return t('slider.title') } },
-                createSlider(bridge, commit, t),
+                { name: 'conversation.input.right', id: 'starmemory-recall-trigger', order: 10, label: function () { return t('slider.title') } },
+                createRecallTrigger(bridge, commit, t),
               )
             })
-            try { console.log('[starmemory] DEBUG registered slot shell.overlay') } catch (e) {}
+            try { console.log('[starmemory] DEBUG registered slot conversation.input.right') } catch (e) {}
           } catch (e) {
-            console.warn('[starmemory] slider disabled:', e)
+            console.warn('[starmemory] recall trigger disabled:', e)
           }
 
           // 主设置页独立分区（settings.section）：召回 Switch + 0-6 档位（bili-scroll「刷B站」姿势）。
