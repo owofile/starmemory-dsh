@@ -236,17 +236,7 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
     '@keyframes sm-shoot{0%{transform:translate(0,0) rotate(-45deg);opacity:0;}',
     '4%{opacity:.9;}28%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}',
     '100%{transform:translate(-150px,150px) rotate(-45deg);opacity:0;}}',
-    // 自定义星空开关（替代 DSH 原生 Switch，避免灰白块）：细轨 + 彩虹圆点
-    '.sm-recall-pop .sm-recall-toggle{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;',
-    'background:none;cursor:pointer;color:var(--dsw-alias-label-primary,#EDEDED);font-size:12px;line-height:1;}',
-    '.sm-recall-pop .sm-recall-toggle:disabled{cursor:default;opacity:.45;}',
-    '.sm-recall-pop .sm-recall-knob{position:relative;width:28px;height:15px;border-radius:8px;',
-    'background:rgba(255,255,255,.14);transition:background .18s ease;}',
-    '.sm-recall-pop .sm-recall-knob::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;',
-    'border-radius:50%;background:#0a0d1a;transition:left .18s ease;box-shadow:0 0 4px rgba(255,255,255,.4);}',
-    '.sm-recall-pop .sm-recall-toggle.is-on .sm-recall-knob{background:var(--sm-rainbow);}',
-    '.sm-recall-pop .sm-recall-toggle.is-on .sm-recall-knob::after{left:15px;background:#0a0d1a;}',
-    // 头部眉标 / 数字（z-index:1 = 在星点/流星 z-index:0 之上）
+    // 头部眉标 / 数字（z-index:1 = 在星点/流星 z-index:0 之上）；弹窗不再有召回开关（开关在设置面板）
     '.sm-recall-pop .sm-recall-head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;}',
     '.sm-recall-pop .sm-recall-en{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;',
     'color:var(--dsw-alias-label-caption,#8A93A6);}',
@@ -574,16 +564,6 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
             h('div', { className: 'sm-recall-meteor m2' }),
             h('div', { className: 'sm-recall-head' },
               h('span', { className: 'sm-recall-en' }, '// RECALL'),
-              h('button', {
-                type: 'button',
-                className: 'sm-recall-toggle' + (state.enabled ? ' is-on' : ''),
-                onClick: function () { onToggle(!state.enabled) },
-                disabled: disabled,
-                'aria-pressed': state.enabled ? 'true' : 'false',
-              },
-                h('span', { className: 'sm-recall-knob' }),
-                h('span', { className: 'sm-recall-toggle-label' }, t('card.autoRecall')),
-              ),
             ),
             h('div', { className: 'sm-recall-num' },
               h('span', { className: 'sm-n' }, 'No.' + pad(displayValue)),
@@ -618,6 +598,9 @@ window.__ModuleLoader__.load({ id: 'starmemory-dsh', factory: function (require)
         )
       }
 
+      // 召回是总功能：recallEnabled=false（设置面板关闭）时隐藏聊天区召回按钮（弹窗也随之不渲染）；
+      // 开关只在设置面板，聊天区弹窗只留眉标 + 档位数字 + 滑块。
+      if (!state.enabled) return null
       return h('div', { ref: rootRef, className: 'sm-ef sm-recall' },
         h('button', {
           ref: triggerRef,
